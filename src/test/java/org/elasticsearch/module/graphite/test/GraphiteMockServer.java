@@ -7,12 +7,12 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.List;
+import java.util.Collection;
 
 public class GraphiteMockServer extends Thread {
 
     private int port;
-    public List<String> content = Lists.newArrayList();
+    public Collection<String> content = Lists.newArrayList();
     private ServerSocket server;
     private boolean isClosed = false;
 

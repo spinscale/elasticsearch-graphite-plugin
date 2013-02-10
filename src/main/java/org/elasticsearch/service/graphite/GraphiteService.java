@@ -1,6 +1,7 @@
 package org.elasticsearch.service.graphite;
 
 import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.collect.Lists;
@@ -14,6 +15,7 @@ import org.elasticsearch.index.service.IndexService;
 import org.elasticsearch.index.shard.service.IndexShard;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.NodeIndicesStats;
+import org.elasticsearch.node.service.NodeService;
 
 import java.util.List;
 
@@ -21,6 +23,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
     private final ClusterService clusterService;
     private final IndicesService indicesService;
+    private NodeService nodeService;
     private final String graphiteHost;
     private final Integer graphitePort;
     private final TimeValue graphiteRefreshInternal;
@@ -29,10 +32,12 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     private volatile boolean closed;
     private final String clusterName;
 
-    @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService) {
+    @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
+                                   NodeService nodeService) {
         super(settings);
         this.clusterService = clusterService;
         this.indicesService = indicesService;
+        this.nodeService = nodeService;
         graphiteRefreshInternal = settings.getAsTime("metrics.graphite.every", TimeValue.timeValueMinutes(1));
         graphiteHost = settings.get("metrics.graphite.host");
         graphitePort = settings.getAsInt("metrics.graphite.port", 3000);
@@ -74,10 +79,11 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
                 if (isClusterStarted && node != null && node.isMasterNode()) {
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
+                    NodeStats nodeStats = nodeService.stats(false, true, true, true, true, true, true, true, true);
                     List<IndexShard> indexShards = getIndexShards(indicesService);
 
                     GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, clusterName,
-                            nodeIndicesStats, indexShards);
+                            nodeIndicesStats, indexShards, nodeStats);
                     graphiteReporter.run();
                 } else {
                     if (node != null) {

@@ -48,8 +48,9 @@ public class GraphitePluginIntegrationTest {
         Thread.sleep(2000);
 
         ensureValidKeyNames();
-        assertThat((Collection) graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1")));
-        assertThat((Collection) graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1")));
+        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1")));
+        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1")));
+        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ")));
     }
 
     @Test
@@ -67,7 +68,7 @@ public class GraphitePluginIntegrationTest {
 
         // wait for master fail over and writing to graph reporter
         Thread.sleep(2000);
-        assertThat((Collection) graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1")));
+        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1")));
     }
 
     private IndexResponse  indexElement(Node node, String index, String type, String fieldValue) {
@@ -78,10 +79,10 @@ public class GraphitePluginIntegrationTest {
 
     // Make sure no elements with a chars [] are included
     private void ensureValidKeyNames() {
-        assertThat((Collection) graphiteMockServer.content, not(hasItem(containsString(".."))));
-        assertThat((Collection) graphiteMockServer.content, not(hasItem(containsString("["))));
-        assertThat((Collection) graphiteMockServer.content, not(hasItem(containsString("]"))));
-        assertThat((Collection) graphiteMockServer.content, not(hasItem(containsString("("))));
-        assertThat((Collection) graphiteMockServer.content, not(hasItem(containsString(")"))));
+        assertThat(graphiteMockServer.content, not(hasItem(containsString(".."))));
+        assertThat(graphiteMockServer.content, not(hasItem(containsString("["))));
+        assertThat(graphiteMockServer.content, not(hasItem(containsString("]"))));
+        assertThat(graphiteMockServer.content, not(hasItem(containsString("("))));
+        assertThat(graphiteMockServer.content, not(hasItem(containsString(")"))));
     }
 }
