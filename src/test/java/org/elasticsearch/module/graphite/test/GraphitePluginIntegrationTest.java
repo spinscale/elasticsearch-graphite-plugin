@@ -1,18 +1,18 @@
 package org.elasticsearch.module.graphite.test;
 
+import static org.elasticsearch.common.base.Predicates.containsPattern;
+import static org.elasticsearch.module.graphite.test.NodeTestHelper.createNode;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.common.RandomStringGenerator;
+import org.elasticsearch.common.collect.Iterables;
 import org.elasticsearch.node.Node;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
-
-import java.util.Collection;
-
-import static org.elasticsearch.module.graphite.test.NodeTestHelper.createNode;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
 
 public class GraphitePluginIntegrationTest {
 
@@ -48,9 +48,9 @@ public class GraphitePluginIntegrationTest {
         Thread.sleep(2000);
 
         ensureValidKeyNames();
-        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1")));
-        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1")));
-        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ")));
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1");
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
     }
 
     @Test
@@ -68,21 +68,27 @@ public class GraphitePluginIntegrationTest {
 
         // wait for master fail over and writing to graph reporter
         Thread.sleep(2000);
-        assertThat(graphiteMockServer.content, hasItem(startsWith("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1")));
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
+    }
+
+    // the stupid hamcrest matchers have compile erros depending whether they run on java6 or java7, so I rolled my own version
+    // yes, I know this sucks... I want power asserts, as usual
+    private void assertGraphiteMetricIsContained(final String id) {
+        assertThat(Iterables.any(graphiteMockServer.content, containsPattern(id)), is(true));
+    }
+
+    // Make sure no elements with a chars [] are included
+    private void ensureValidKeyNames() {
+        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\.\\.")), is(false));
+        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\[")), is(false));
+        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\]")), is(false));
+        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\(")), is(false));
+        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\)")), is(false));
     }
 
     private IndexResponse  indexElement(Node node, String index, String type, String fieldValue) {
         return node.client().prepareIndex(index, type).
                 setSource("field", fieldValue)
                 .execute().actionGet();
-    }
-
-    // Make sure no elements with a chars [] are included
-    private void ensureValidKeyNames() {
-        assertThat(graphiteMockServer.content, not(hasItem(containsString(".."))));
-        assertThat(graphiteMockServer.content, not(hasItem(containsString("["))));
-        assertThat(graphiteMockServer.content, not(hasItem(containsString("]"))));
-        assertThat(graphiteMockServer.content, not(hasItem(containsString("("))));
-        assertThat(graphiteMockServer.content, not(hasItem(containsString(")"))));
     }
 }
