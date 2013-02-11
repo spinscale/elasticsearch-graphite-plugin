@@ -40,7 +40,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
         this.nodeService = nodeService;
         graphiteRefreshInternal = settings.getAsTime("metrics.graphite.every", TimeValue.timeValueMinutes(1));
         graphiteHost = settings.get("metrics.graphite.host");
-        graphitePort = settings.getAsInt("metrics.graphite.port", 3000);
+        graphitePort = settings.getAsInt("metrics.graphite.port", 2003);
         clusterName = settings.get("cluster.name");
     }
 

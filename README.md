@@ -22,13 +22,13 @@ mvn package
 Configuration is possible via three parameters:
 
 * `metrics.graphite.host`: The graphite host to connect to (default: none)
-* `metrics.graphite.port`: The port to connect to (default: 30000)
+* `metrics.graphite.port`: The port to connect to (default: 2003)
 * `metrics.graphite.every`: The interval to push data (default: 1m)
 
 Check your elasticsearch log file for a line like this after adding the configuration parameters below to the configuration file
 
 ```
-[2013-02-08 16:01:49,153][INFO ][service.graphite         ] [Sea Urchin] Graphite reporting triggered every [1m] to host [graphite.example.com:3000]
+[2013-02-08 16:01:49,153][INFO ][service.graphite         ] [Sea Urchin] Graphite reporting triggered every [1m] to host [graphite.example.com:2003]
 ```
 
 
