@@ -196,12 +196,14 @@ public class GraphiteReporter {
 
             JvmStats.GarbageCollector.LastGc lastGc = collector.lastGc();
             String lastGcType = type + ".lastGc";
-            sendInt(lastGcType, "startTime", lastGc.startTime());
-            sendInt(lastGcType, "endTime", lastGc.endTime());
-            sendInt(lastGcType, "max", lastGc.max().bytes());
-            sendInt(lastGcType, "beforeUsed", lastGc.beforeUsed().bytes());
-            sendInt(lastGcType, "afterUsed", lastGc.afterUsed().bytes());
-            sendInt(lastGcType, "durationSeconds", lastGc.duration().seconds());
+            if (lastGc != null) {
+                sendInt(lastGcType, "startTime", lastGc.startTime());
+                sendInt(lastGcType, "endTime", lastGc.endTime());
+                sendInt(lastGcType, "max", lastGc.max().bytes());
+                sendInt(lastGcType, "beforeUsed", lastGc.beforeUsed().bytes());
+                sendInt(lastGcType, "afterUsed", lastGc.afterUsed().bytes());
+                sendInt(lastGcType, "durationSeconds", lastGc.duration().seconds());
+            }
         }
 
         // TODO: bufferPools - where to get them?
