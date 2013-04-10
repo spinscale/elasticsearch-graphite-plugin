@@ -39,18 +39,18 @@ public class GraphiteReporter {
     private Writer writer;
     private final String host;
     private final int port;
-    private String clusterName;
+    private final String prefix;
     private List<IndexShard> indexShards;
     private NodeStats nodeStats;
     private final long timestamp;
     private final NodeIndicesStats nodeIndicesStats;
 
 
-    public GraphiteReporter(String host, int port, String clusterName, NodeIndicesStats nodeIndicesStats,
+    public GraphiteReporter(String host, int port, String prefix, NodeIndicesStats nodeIndicesStats,
                             List<IndexShard> indexShards, NodeStats nodeStats) {
         this.host = host;
         this.port = port;
-        this.clusterName = clusterName;
+        this.prefix = prefix;
         this.indexShards = indexShards;
         this.nodeStats = nodeStats;
         this.timestamp = System.currentTimeMillis() / 1000;
@@ -89,7 +89,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeThreadPoolStats(ThreadPoolStats threadPoolStats) {
-        String type = "elasticsearch." + clusterName + ".node.threadpool";
+        String type = buildMetricName("node.threadpool");
         Iterator<ThreadPoolStats.Stats> statsIterator = threadPoolStats.iterator();
         while (statsIterator.hasNext()) {
             ThreadPoolStats.Stats stats = statsIterator.next();
@@ -105,7 +105,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeTransportStats(TransportStats transportStats) {
-        String type = "elasticsearch." + clusterName + ".node.transport";
+        String type = buildMetricName("node.transport");
         sendInt(type, "serverOpen", transportStats.serverOpen());
         sendInt(type, "rxCount", transportStats.rxCount());
         sendInt(type, "rxSizeBytes", transportStats.rxSize().bytes());
@@ -114,7 +114,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeProcessStats(ProcessStats processStats) {
-        String type = "elasticsearch." + clusterName + ".node.process";
+        String type = buildMetricName("node.process");
 
         sendInt(type, "openFileDescriptors", processStats.openFileDescriptors());
         sendInt(type + ".cpu", "percent", processStats.cpu().percent());
@@ -128,7 +128,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeOsStats(OsStats osStats) {
-        String type = "elasticsearch." + clusterName + ".node.os";
+        String type = buildMetricName("node.os");
 
         sendInt(type + ".cpu", "sys", osStats.cpu().sys());
         sendInt(type + ".cpu", "idle", osStats.cpu().idle());
@@ -146,7 +146,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeNetworkStats(NetworkStats networkStats) {
-        String type = "elasticsearch." + clusterName + ".node.network.tcp";
+        String type = buildMetricName("node.network.tcp");
         NetworkStats.Tcp tcp = networkStats.tcp();
 
         sendInt(type, "activeOpens", tcp.activeOpens());
@@ -162,7 +162,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeJvmStats(JvmStats jvmStats) {
-        String type = "elasticsearch." + clusterName + ".node.jvm";
+        String type = buildMetricName("node.jvm");
         sendInt(type, "uptime", jvmStats.uptime().seconds());
 
         // mem
@@ -210,7 +210,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeHttpStats(HttpStats httpStats) {
-        String type = "elasticsearch." + clusterName + ".node.http";
+        String type = buildMetricName("node.http");
         sendInt(type, "serverOpen", httpStats.serverOpen());
         sendInt(type, "totalOpen", httpStats.totalOpen());
     }
@@ -219,7 +219,7 @@ public class GraphiteReporter {
         Iterator<FsStats.Info> infoIterator = fs.iterator();
         int i = 0;
         while (infoIterator.hasNext()) {
-            String type = "elasticsearch." + clusterName + ".node.fs." + i;
+            String type = buildMetricName("node.fs") + i;
             FsStats.Info info = infoIterator.next();
             sendInt(type, "available", info.available().bytes());
             sendInt(type, "total", info.total().bytes());
@@ -236,7 +236,7 @@ public class GraphiteReporter {
 
     private void sendIndexShardStats() {
         for (IndexShard indexShard : indexShards) {
-            String type = "elasticsearch." + clusterName + ".indexes." + indexShard.shardId().index().name() + ".id." + indexShard.shardId().id();
+            String type = buildMetricName("indexes.") + indexShard.shardId().index().name() + ".id." + indexShard.shardId().id();
             sendIndexShardStats(type, indexShard);
         }
     }
@@ -273,7 +273,7 @@ public class GraphiteReporter {
     }
 
     private void sendNodeIndicesStats() {
-        String type = "elasticsearch." + clusterName + ".node";
+        String type = buildMetricName("node");
         sendCacheStats(type + ".cache", nodeIndicesStats.cache());
         sendDocsStats(type + ".docs", nodeIndicesStats.docs());
         sendFlushStats(type + ".flush", nodeIndicesStats.flush());
@@ -295,7 +295,7 @@ public class GraphiteReporter {
     }
 
     private void sendSearchStatsStats(String group, SearchStats.Stats searchStats) {
-        String type = "elasticsearch." + clusterName + ".search.stats." + group;
+        String type = buildMetricName("search.stats.") + group;
         sendInt(type, "queryCount", searchStats.queryCount());
         sendInt(type, "queryTimeInMillis", searchStats.queryTimeInMillis());
         sendInt(type, "queryCurrent", searchStats.queryCurrent());
@@ -387,6 +387,10 @@ public class GraphiteReporter {
 
     protected String sanitizeString(String s) {
         return s.replace(' ', '-');
+    }
+
+    protected String buildMetricName(String name) {
+        return prefix + "." + name;
     }
 
     private void flushWriter() {
