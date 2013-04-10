@@ -27,10 +27,10 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     private final String graphiteHost;
     private final Integer graphitePort;
     private final TimeValue graphiteRefreshInternal;
+    private final String graphitePrefix;
 
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
-    private final String clusterName;
 
     @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
                                    NodeService nodeService) {
@@ -41,7 +41,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
         graphiteRefreshInternal = settings.getAsTime("metrics.graphite.every", TimeValue.timeValueMinutes(1));
         graphiteHost = settings.get("metrics.graphite.host");
         graphitePort = settings.getAsInt("metrics.graphite.port", 2003);
-        clusterName = settings.get("cluster.name");
+        graphitePrefix = settings.get("metrics.graphite.prefix", "elasticsearch" + "." + settings.get("cluster.name"));
     }
 
     @Override
@@ -49,7 +49,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
         if (graphiteHost != null && graphiteHost.length() > 0) {
             graphiteReporterThread = EsExecutors.daemonThreadFactory(settings, "graphite_reporter").newThread(new GraphiteReporterThread());
             graphiteReporterThread.start();
-            logger.info("Graphite reporting triggered every [{}] to host [{}:{}]", graphiteRefreshInternal, graphiteHost, graphitePort);
+            logger.info("Graphite reporting triggered every [{}] to host [{}:{}] with metric prefix [{}]", graphiteRefreshInternal, graphiteHost, graphitePort, graphitePrefix);
         } else {
             logger.error("Graphite reporting disabled, no graphite host configured");
         }
@@ -82,7 +82,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                     NodeStats nodeStats = nodeService.stats(false, true, true, true, true, true, true, true, true);
                     List<IndexShard> indexShards = getIndexShards(indicesService);
 
-                    GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, clusterName,
+                    GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
                             nodeIndicesStats, indexShards, nodeStats);
                     graphiteReporter.run();
                 } else {
