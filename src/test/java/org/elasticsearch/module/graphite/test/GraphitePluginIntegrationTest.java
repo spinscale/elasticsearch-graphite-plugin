@@ -43,7 +43,7 @@ public class GraphitePluginIntegrationTest {
     @Test
     public void testThatIndexingResultsInMonitoring() throws Exception {
         IndexResponse indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.id(), is(notNullValue()));
+        assertThat(indexResponse.getId(), is(notNullValue()));
 
         Thread.sleep(2000);
 
@@ -57,14 +57,14 @@ public class GraphitePluginIntegrationTest {
     public void masterFailOverShouldWork() throws Exception {
         String clusterName = RandomStringGenerator.randomAlphabetic(10);
         IndexResponse indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.id(), is(notNullValue()));
+        assertThat(indexResponse.getId(), is(notNullValue()));
 
         Node origNode = node;
         node = createNode(clusterName, 1, GRAPHITE_SERVER_PORT, "1s");
         graphiteMockServer.content.clear();
         origNode.stop();
         indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.id(), is(notNullValue()));
+        assertThat(indexResponse.getId(), is(notNullValue()));
 
         // wait for master fail over and writing to graph reporter
         Thread.sleep(2000);

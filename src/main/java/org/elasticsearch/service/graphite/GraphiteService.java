@@ -2,6 +2,7 @@ package org.elasticsearch.service.graphite;
 
 import org.elasticsearch.ElasticSearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
+import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
 import org.elasticsearch.common.collect.Lists;
@@ -79,7 +80,8 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
                 if (isClusterStarted && node != null && node.isMasterNode()) {
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
-                    NodeStats nodeStats = nodeService.stats(false, true, true, true, true, true, true, true, true);
+                    CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
+                    NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true);
                     List<IndexShard> indexShards = getIndexShards(indicesService);
 
                     GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
