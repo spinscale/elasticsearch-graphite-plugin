@@ -25,6 +25,8 @@ Configuration is possible via three parameters:
 * `metrics.graphite.port`: The port to connect to (default: 2003)
 * `metrics.graphite.every`: The interval to push data (default: 1m)
 * `metrics.graphite.prefix`: The metric prefix that's sent with metric names (default: elasticsearch.your_cluster_name)
+* `metrics.graphite.exclude`: A regular expression allowing you to exclude certain metrics (note that the node does not start if the regex does not compile)
+* `metrics.graphite.include`: A regular expression to explicitely include certain metrics even though they matched the exclude (note that the node does not start if the regex does not compile)
 
 Check your elasticsearch log file for a line like this after adding the configuration parameters below to the configuration file
 

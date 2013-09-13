@@ -19,6 +19,7 @@ import org.elasticsearch.indices.NodeIndicesStats;
 import org.elasticsearch.node.service.NodeService;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class GraphiteService extends AbstractLifecycleComponent<GraphiteService> {
 
@@ -29,6 +30,8 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     private final Integer graphitePort;
     private final TimeValue graphiteRefreshInternal;
     private final String graphitePrefix;
+    private Pattern graphiteInclusionRegex;
+    private Pattern graphiteExclusionRegex;
 
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
@@ -43,14 +46,25 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
         graphiteHost = settings.get("metrics.graphite.host");
         graphitePort = settings.getAsInt("metrics.graphite.port", 2003);
         graphitePrefix = settings.get("metrics.graphite.prefix", "elasticsearch" + "." + settings.get("cluster.name"));
+        String graphiteInclusionRegexString = settings.get("metrics.graphite.include");
+        if (graphiteInclusionRegexString != null) {
+            graphiteInclusionRegex = Pattern.compile(graphiteInclusionRegexString);
+        }
+        String graphiteExclusionRegexString = settings.get("metrics.graphite.exclude");
+        if (graphiteExclusionRegexString != null) {
+            graphiteExclusionRegex = Pattern.compile(graphiteExclusionRegexString);
+        }
     }
 
     @Override
     protected void doStart() throws ElasticSearchException {
         if (graphiteHost != null && graphiteHost.length() > 0) {
-            graphiteReporterThread = EsExecutors.daemonThreadFactory(settings, "graphite_reporter").newThread(new GraphiteReporterThread());
+            graphiteReporterThread = EsExecutors.daemonThreadFactory(settings, "graphite_reporter").newThread(new GraphiteReporterThread(graphiteInclusionRegex, graphiteExclusionRegex));
             graphiteReporterThread.start();
-            logger.info("Graphite reporting triggered every [{}] to host [{}:{}] with metric prefix [{}]", graphiteRefreshInternal, graphiteHost, graphitePort, graphitePrefix);
+            StringBuilder sb = new StringBuilder();
+            if (graphiteInclusionRegex != null) sb.append("include [").append(graphiteInclusionRegex).append("] ");
+            if (graphiteExclusionRegex != null) sb.append("exclude [").append(graphiteExclusionRegex).append("] ");
+            logger.info("Graphite reporting triggered every [{}] to host [{}:{}] with metric prefix [{}] {}", graphiteRefreshInternal, graphiteHost, graphitePort, graphitePrefix, sb);
         } else {
             logger.error("Graphite reporting disabled, no graphite host configured");
         }
@@ -73,6 +87,14 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
     public class GraphiteReporterThread implements Runnable {
 
+        private final Pattern graphiteInclusionRegex;
+        private final Pattern graphiteExclusionRegex;
+
+        public GraphiteReporterThread(Pattern graphiteInclusionRegex, Pattern graphiteExclusionRegex) {
+            this.graphiteInclusionRegex = graphiteInclusionRegex;
+            this.graphiteExclusionRegex = graphiteExclusionRegex;
+        }
+
         public void run() {
             while (!closed) {
                 DiscoveryNode node = clusterService.localNode();
@@ -85,7 +107,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                     List<IndexShard> indexShards = getIndexShards(indicesService);
 
                     GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
-                            nodeIndicesStats, indexShards, nodeStats);
+                            nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex);
                     graphiteReporter.run();
                 } else {
                     if (node != null) {

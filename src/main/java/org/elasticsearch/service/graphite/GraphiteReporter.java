@@ -33,6 +33,7 @@ import java.net.Socket;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class GraphiteReporter {
 
@@ -43,17 +44,22 @@ public class GraphiteReporter {
     private final String prefix;
     private List<IndexShard> indexShards;
     private NodeStats nodeStats;
+    private final Pattern graphiteInclusionRegex;
+    private final Pattern graphiteExclusionRegex;
     private final long timestamp;
     private final NodeIndicesStats nodeIndicesStats;
 
 
     public GraphiteReporter(String host, int port, String prefix, NodeIndicesStats nodeIndicesStats,
-                            List<IndexShard> indexShards, NodeStats nodeStats) {
+                            List<IndexShard> indexShards, NodeStats nodeStats,
+                            Pattern graphiteInclusionRegex, Pattern graphiteExclusionRegex) {
         this.host = host;
         this.port = port;
         this.prefix = prefix;
         this.indexShards = indexShards;
         this.nodeStats = nodeStats;
+        this.graphiteInclusionRegex = graphiteInclusionRegex;
+        this.graphiteExclusionRegex = graphiteExclusionRegex;
         this.timestamp = System.currentTimeMillis() / 1000;
         this.nodeIndicesStats = nodeIndicesStats;
     }
@@ -374,8 +380,16 @@ public class GraphiteReporter {
 
     protected void sendToGraphite(String name, String value) {
         try {
-            writer.write(sanitizeString(name));
-            writer.write('.');
+            String nameToSend = sanitizeString(name);
+            // check if this value is excluded
+            if (graphiteExclusionRegex != null && graphiteExclusionRegex.matcher(nameToSend).matches()) {
+                if (graphiteInclusionRegex == null ||
+                    (graphiteInclusionRegex != null && !graphiteInclusionRegex.matcher(nameToSend).matches())) {
+                    return;
+                }
+            }
+            writer.write(nameToSend);
+            writer.write(' ');
             writer.write(value);
             writer.write(' ');
             writer.write(Long.toString(timestamp));
@@ -387,16 +401,12 @@ public class GraphiteReporter {
     }
 
     protected void sendInt(String name, String valueName, long value) {
-        sendToGraphite(name, valueName + " " + String.format("%d", value));
+        sendToGraphite(name + "." + valueName, String.format("%d", value));
     }
 
     protected void sendFloat(String name, String valueName, double value) {
-        sendToGraphite(name, valueName + " " + String.format("%2.2f", value));
+        sendToGraphite(name + "." + valueName, String.format("%2.2f", value));
     }
-
-//    protected void sendObjToGraphite(String name, String valueName, Object value) {
-//        sendToGraphite(name, valueName + " " + String.format("%s", value));
-//    }
 
     protected String sanitizeString(String s) {
         return s.replace(' ', '-');

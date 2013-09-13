@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Collection;
 
 public class GraphiteMockServer extends Thread {
@@ -40,7 +41,9 @@ public class GraphiteMockServer extends Thread {
             }
 
         } catch (IOException e) {
-            e.printStackTrace();
+            if (!(e instanceof SocketException)) {
+                e.printStackTrace();
+            }
         }
     }
 
