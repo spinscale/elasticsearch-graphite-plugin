@@ -13,7 +13,7 @@ As plugins (except site plugins) cannot be automatically installed from github c
 git clone https://github.com/spinscale/elasticsearch-graphite-plugin
 cd elasticsearch-graphite-plugin
 mvn package
-/path/to/elasticsearch/bin/plugin -install graphite -url file:///absolute/path/to/current/dir/target/releases/elasticsearch-plugin-graphite-0.1-SNAPSHOT.zip
+/path/to/elasticsearch/bin/plugin -install graphite -url file:///absolute/path/to/current/dir/target/releases/elasticsearch-plugin-graphite-0.2-SNAPSHOT.zip
 ```
 
 

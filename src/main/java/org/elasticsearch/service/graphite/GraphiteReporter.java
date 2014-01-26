@@ -207,8 +207,6 @@ public class GraphiteReporter {
         sendInt(type + ".threads", "peakCount", jvmStats.threads().peakCount());
 
         // garbage collectors
-        sendInt(type + ".gc", "collectionCount", jvmStats.gc().collectionCount());
-        sendInt(type + ".gc", "collectionTimeSeconds", jvmStats.gc().collectionTime().seconds());
         for (JvmStats.GarbageCollector collector : jvmStats.gc().collectors()) {
             String id = type + ".gc." + collector.name();
             sendInt(id, "collectionCount", collector.collectionCount());
