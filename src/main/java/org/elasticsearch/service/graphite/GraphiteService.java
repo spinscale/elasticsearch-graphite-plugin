@@ -1,6 +1,6 @@
 package org.elasticsearch.service.graphite;
 
-import org.elasticsearch.ElasticSearchException;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
 import org.elasticsearch.cluster.ClusterService;
@@ -57,7 +57,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     }
 
     @Override
-    protected void doStart() throws ElasticSearchException {
+    protected void doStart() throws ElasticsearchException {
         if (graphiteHost != null && graphiteHost.length() > 0) {
             graphiteReporterThread = EsExecutors.daemonThreadFactory(settings, "graphite_reporter").newThread(new GraphiteReporterThread(graphiteInclusionRegex, graphiteExclusionRegex));
             graphiteReporterThread.start();
@@ -71,7 +71,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     }
 
     @Override
-    protected void doStop() throws ElasticSearchException {
+    protected void doStop() throws ElasticsearchException {
         if (closed) {
             return;
         }
@@ -83,7 +83,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     }
 
     @Override
-    protected void doClose() throws ElasticSearchException {}
+    protected void doClose() throws ElasticsearchException {}
 
     public class GraphiteReporterThread implements Runnable {
 
@@ -103,7 +103,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                 if (isClusterStarted && node != null && node.isMasterNode()) {
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
                     CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
-                    NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true);
+                    NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
                     List<IndexShard> indexShards = getIndexShards(indicesService);
 
                     GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
