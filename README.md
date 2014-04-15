@@ -44,7 +44,7 @@ Check your elasticsearch log file for a line like this after adding the configur
 
 ## Credits
 
-Heavily inspired by the excellent [metrics library](http://metrics.codehale.com) by Code Hale and its [GraphiteReporter add-on](http://metrics.codahale.com/manual/graphite/).
+Heavily inspired by the excellent [metrics library](http://metrics.codahale.com) by Coda Hale and its [GraphiteReporter add-on](http://metrics.codahale.com/manual/graphite/).
 
 
 ## License
