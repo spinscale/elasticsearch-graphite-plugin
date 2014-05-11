@@ -5,6 +5,7 @@ import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
+import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.component.Lifecycle;
@@ -98,20 +99,33 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
         public void run() {
             while (!closed) {
                 DiscoveryNode node = clusterService.localNode();
-                boolean isClusterStarted = clusterService.lifecycleState().equals(Lifecycle.State.STARTED);
-
-                if (isClusterStarted && node != null && node.isMasterNode()) {
-                    NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
-                    CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
-                    NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
-                    List<IndexShard> indexShards = getIndexShards(indicesService);
-
-                    GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
-                            nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex);
-                    graphiteReporter.run();
-                } else {
-                    if (node != null) {
-                        logger.debug("[{}]/[{}] is not master node, not triggering update", node.getId(), node.getName());
+                if (node != null) {
+                    boolean isClusterStarted = clusterService.lifecycleState().equals(Lifecycle.State.STARTED);
+                    if (isClusterStarted) {
+                        DiscoveryNodes nodes = clusterService.state().nodes();
+                        // Here we are assuming that reporting metrics is useless until a Master node is elected in the Cluster
+                        if (nodes != null && (nodes.getMasterNode() != null)) {
+                            NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
+                            CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
+                            NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
+                            List<IndexShard> indexShards = getIndexShards(indicesService);
+                    
+                            GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
+                                nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex);
+                            graphiteReporter.run();
+                        } else {
+                            if (logger.isDebugEnabled()) {
+                                logger.debug("[{}]/[{}] not triggering update, Cluster has no Master node, ", node.getId(), node.getName());
+                            }
+                        }
+                    } else {    
+                        if (logger.isDebugEnabled()) {
+                          logger.debug("[{}]/[{}] not triggering update, Cluster is not started", node.getId(), node.getName());
+                        }
+                    }
+                } else {    
+                    if (logger.isDebugEnabled()) {
+                      logger.debug("Not triggering update, Node is Null");
                     }
                 }
 
