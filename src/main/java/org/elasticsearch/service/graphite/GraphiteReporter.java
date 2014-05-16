@@ -6,6 +6,7 @@ import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.http.HttpStats;
 import org.elasticsearch.index.cache.filter.FilterCacheStats;
 import org.elasticsearch.index.cache.id.IdCacheStats;
+import org.elasticsearch.index.fielddata.FieldDataStats;
 import org.elasticsearch.index.flush.FlushStats;
 import org.elasticsearch.index.get.GetStats;
 import org.elasticsearch.index.indexing.IndexingStats;
@@ -300,6 +301,7 @@ public class GraphiteReporter {
         sendIndexingStats(type + ".indexing", nodeIndicesStats.getIndexing());
         sendRefreshStats(type + ".refresh", nodeIndicesStats.getRefresh());
         sendSearchStats(type + ".search", nodeIndicesStats.getSearch());
+        sendFieldDataStats(type + ".fielddata", nodeIndicesStats.getFieldData());
     }
 
     private void sendSearchStats(String type, SearchStats searchStats) {
@@ -374,6 +376,11 @@ public class GraphiteReporter {
     private void sendFilterCacheStats(String name, FilterCacheStats filterCache) {
         sendInt(name, "memorySizeInBytes", filterCache.getMemorySizeInBytes());
         sendInt(name, "evictions", filterCache.getEvictions());
+    }
+
+    private void sendFieldDataStats(String name, FieldDataStats fieldDataStats) {
+        sendInt(name, "memorySizeInBytes", fieldDataStats.getMemorySizeInBytes());
+        sendInt(name, "evictions", fieldDataStats.getEvictions());
     }
 
     protected void sendToGraphite(String name, String value) {
