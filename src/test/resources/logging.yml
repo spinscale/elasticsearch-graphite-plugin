@@ -1,7 +1,7 @@
 rootLogger: INFO, console
 
 logger:
-  service.graphite: DEBUG
+  org.elasticsearch.service.graphite: DEBUG
   plugin.graphite.GraphitePlugin: DEBUG
 
 appender:
