@@ -125,8 +125,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
         private List<IndexShard> getIndexShards(IndicesService indicesService) {
             List<IndexShard> indexShards = Lists.newArrayList();
-            String[] indices = indicesService.indices().toArray(new String[]{});
-            for (String indexName : indices) {
+            for (String indexName : indicesService.indices().keySet()) {
                 IndexService indexService = indicesService.indexServiceSafe(indexName);
                 for (int shardId : indexService.shardIds()) {
                     indexShards.add(indexService.shard(shardId));

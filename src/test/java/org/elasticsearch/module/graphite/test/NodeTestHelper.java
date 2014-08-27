@@ -18,6 +18,8 @@ public class NodeTestHelper {
                                   String excludeRegex) throws IOException {
         ImmutableSettings.Builder settingsBuilder = ImmutableSettings.settingsBuilder();
 
+        settingsBuilder.put("path.conf", NodeTestHelper.class.getResource("/").getFile());
+
         settingsBuilder.put("gateway.type", "none");
         settingsBuilder.put("cluster.name", clusterName);
         settingsBuilder.put("index.number_of_shards", 1);
