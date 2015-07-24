@@ -11,11 +11,11 @@ import java.io.IOException;
 public class NodeTestHelper {
 
     public static Node createNode(String clusterName, int graphitePort, String refreshInterval) throws IOException {
-        return createNode(clusterName, graphitePort, refreshInterval, null, null);
+        return createNode(clusterName, graphitePort, refreshInterval, null, null, null);
     }
 
     public static Node createNode(String clusterName, int graphitePort, String refreshInterval, String includeRegex,
-                                  String excludeRegex) throws IOException {
+                                  String excludeRegex, String prefix) throws IOException {
         ImmutableSettings.Builder settingsBuilder = ImmutableSettings.settingsBuilder();
 
         settingsBuilder.put("path.conf", NodeTestHelper.class.getResource("/").getFile());
@@ -28,6 +28,9 @@ public class NodeTestHelper {
         settingsBuilder.put("metrics.graphite.host", "localhost");
         settingsBuilder.put("metrics.graphite.port", graphitePort);
         settingsBuilder.put("metrics.graphite.every", refreshInterval);
+        if (!Strings.isEmpty(prefix)) {
+            settingsBuilder.put("metrics.graphite.prefix", prefix);
+        }
 
         if (Strings.hasLength(includeRegex)) {
             settingsBuilder.put("metrics.graphite.include", includeRegex);

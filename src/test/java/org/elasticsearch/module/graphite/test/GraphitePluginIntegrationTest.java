@@ -58,7 +58,7 @@ public class GraphitePluginIntegrationTest {
     @Test
     public void testThatFieldExclusionWorks() throws Exception {
         String excludeRegex = ".*\\.peakCount";
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex);
+        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex, null);
 
         IndexResponse indexResponse = indexElement(node, index, type, "value");
         assertThat(indexResponse.getId(), is(notNullValue()));
@@ -66,14 +66,34 @@ public class GraphitePluginIntegrationTest {
         Thread.sleep(2000);
 
         ensureValidKeyNames();
+        // ensure no global exclusion
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
         assertGraphiteMetricIsNotContained("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
+    }
+
+    @Test
+    public void testThatFieldExclusionWorksWithPrefix() throws Exception {
+        String prefix = "my.awesome.prefix";
+        String excludeRegex = prefix + ".node.[http|jvm].*";
+        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex, prefix);
+
+        IndexResponse indexResponse = indexElement(node, index, type, "value");
+        assertThat(indexResponse.getId(), is(notNullValue()));
+
+        Thread.sleep(2000);
+
+        ensureValidKeyNames();
+        // ensure no global exclusion
+        assertGraphiteMetricIsContained(prefix + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
+        assertGraphiteMetricIsNotContained(prefix + ".node.jvm.threads.peakCount ");
+        assertGraphiteMetricIsNotContained(prefix + ".node.http.totalOpen ");
     }
 
     @Test
     public void testThatFieldInclusionWinsOverExclusion() throws Exception {
         String excludeRegex = ".*" + clusterName + ".*";
         String includeRegex = ".*\\.peakCount";
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", includeRegex, excludeRegex);
+        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", includeRegex, excludeRegex, null);
 
         IndexResponse indexResponse = indexElement(node, index, type, "value");
         assertThat(indexResponse.getId(), is(notNullValue()));
@@ -88,7 +108,7 @@ public class GraphitePluginIntegrationTest {
     @Test(expected = ProvisionException.class)
     public void testThatBrokenRegexLeadsToException() throws Exception {
         String excludeRegex = "*.peakCount";
-        createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex);
+        createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex, null);
     }
 
 
