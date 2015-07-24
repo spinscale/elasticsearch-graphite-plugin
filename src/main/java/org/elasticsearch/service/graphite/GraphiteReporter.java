@@ -14,7 +14,7 @@ import org.elasticsearch.index.merge.MergeStats;
 import org.elasticsearch.index.refresh.RefreshStats;
 import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.index.shard.DocsStats;
-import org.elasticsearch.index.shard.service.IndexShard;
+import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.store.StoreStats;
 import org.elasticsearch.index.warmer.WarmerStats;
 import org.elasticsearch.indices.NodeIndicesStats;
