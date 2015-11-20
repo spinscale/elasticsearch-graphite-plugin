@@ -315,8 +315,7 @@ public class GraphiteReporter {
         }
     }
 
-    private void sendSearchStatsStats(String group, SearchStats.Stats searchStats) {
-        String type = buildMetricName("search.stats.") + group;
+    private void sendSearchStatsStats(String type, SearchStats.Stats searchStats) {
         sendInt(type, "queryCount", searchStats.getQueryCount());
         sendInt(type, "queryTimeInMillis", searchStats.getQueryTimeInMillis());
         sendInt(type, "queryCurrent", searchStats.getQueryCurrent());
