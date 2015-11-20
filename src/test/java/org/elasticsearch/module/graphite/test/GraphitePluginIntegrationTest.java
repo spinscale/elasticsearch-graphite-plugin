@@ -1,6 +1,7 @@
 package org.elasticsearch.module.graphite.test;
 
 import org.elasticsearch.action.index.IndexResponse;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.collect.Iterables;
 import org.elasticsearch.common.inject.ProvisionException;
 import org.elasticsearch.node.Node;
@@ -50,9 +51,11 @@ public class GraphitePluginIntegrationTest {
         Thread.sleep(2000);
 
         ensureValidKeyNames();
-        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
-        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1");
-        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id.0.search._all.queryCount ");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".node.search._all.queryCount ");
     }
 
     @Test
@@ -97,6 +100,9 @@ public class GraphitePluginIntegrationTest {
 
         IndexResponse indexResponse = indexElement(node, index, type, "value");
         assertThat(indexResponse.getId(), is(notNullValue()));
+
+        SearchResponse searchResponse = searchElement(node);
+        assertThat(searchResponse.status(), is(notNullValue()));
 
         Thread.sleep(2000);
 
@@ -154,5 +160,9 @@ public class GraphitePluginIntegrationTest {
         return node.client().prepareIndex(index, type).
                 setSource("field", fieldValue)
                 .execute().actionGet();
+    }
+
+    private SearchResponse  searchElement(Node node) {
+        return node.client().prepareSearch().execute().actionGet();
     }
 }
