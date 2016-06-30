@@ -41,7 +41,7 @@ Check your elasticsearch log file for a line like this after adding the configur
 * Not extensively tested
 * In case of a master node failover, counts are starting from 0 again (in case you are wondering about spikes)
 
-# Changes (ES 2.3):
+## Changes (ES 2.3):
 
 ```text
 node.process
