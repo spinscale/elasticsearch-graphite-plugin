@@ -1,6 +1,8 @@
 package org.elasticsearch.module.graphite.test;
 
-import org.elasticsearch.common.collect.Lists;
+
+
+import com.google.common.collect.Lists;
 
 import java.io.BufferedReader;
 import java.io.IOException;

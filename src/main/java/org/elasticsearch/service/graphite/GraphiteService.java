@@ -1,11 +1,11 @@
 package org.elasticsearch.service.graphite;
 
+import com.google.common.collect.Lists;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
 import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.common.collect.Lists;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.component.Lifecycle;
 import org.elasticsearch.common.inject.Inject;
@@ -26,19 +26,20 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
     private final ClusterService clusterService;
     private final IndicesService indicesService;
-    private NodeService nodeService;
     private final String graphiteHost;
     private final Integer graphitePort;
     private final TimeValue graphiteRefreshInternal;
     private final String graphitePrefix;
+    private NodeService nodeService;
     private Pattern graphiteInclusionRegex;
     private Pattern graphiteExclusionRegex;
 
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
 
-    @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
-                                   NodeService nodeService) {
+    @Inject
+    public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
+                           NodeService nodeService) {
         super(settings);
         this.clusterService = clusterService;
         this.indicesService = indicesService;
@@ -84,7 +85,8 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     }
 
     @Override
-    protected void doClose() throws ElasticsearchException {}
+    protected void doClose() throws ElasticsearchException {
+    }
 
     public class GraphiteReporterThread implements Runnable {
 
@@ -101,7 +103,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                 DiscoveryNode node = clusterService.localNode();
                 boolean isClusterStarted = clusterService.lifecycleState().equals(Lifecycle.State.STARTED);
 
-                if (isClusterStarted && node != null && node.isMasterNode()) {
+                if (isClusterStarted && node != null && (node.isMasterNode() || node.isDataNode())) {
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
                     CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
                     NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);

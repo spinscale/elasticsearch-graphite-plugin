@@ -2,7 +2,7 @@ package org.elasticsearch.module.graphite.test;
 
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.logging.log4j.LogConfigurator;
-import org.elasticsearch.common.settings.ImmutableSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeBuilder;
 
@@ -16,11 +16,13 @@ public class NodeTestHelper {
 
     public static Node createNode(String clusterName, int graphitePort, String refreshInterval, String includeRegex,
                                   String excludeRegex, String prefix) throws IOException {
-        ImmutableSettings.Builder settingsBuilder = ImmutableSettings.settingsBuilder();
+        Settings.Builder settingsBuilder = Settings.settingsBuilder();
 
-        settingsBuilder.put("path.conf", NodeTestHelper.class.getResource("/").getFile());
+        settingsBuilder.put("path.home", "target/es-data");
+        settingsBuilder.put("path.conf", NodeTestHelper.class.getResource("/").getFile().replaceFirst("^/(.:/)", "$1"));
+        settingsBuilder.put("path.plugins", "src/main/resources");
 
-        settingsBuilder.put("gateway.type", "none");
+//        settingsBuilder.put("gateway.type", "none");
         settingsBuilder.put("cluster.name", clusterName);
         settingsBuilder.put("index.number_of_shards", 1);
         settingsBuilder.put("index.number_of_replicas", 1);
@@ -40,7 +42,7 @@ public class NodeTestHelper {
             settingsBuilder.put("metrics.graphite.exclude", excludeRegex);
         }
 
-        LogConfigurator.configure(settingsBuilder.build());
+        LogConfigurator.configure(settingsBuilder.build(), true);
 
         return NodeBuilder.nodeBuilder().settings(settingsBuilder.build()).node();
     }

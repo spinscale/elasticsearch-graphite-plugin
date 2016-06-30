@@ -1,13 +1,13 @@
 package org.elasticsearch.plugin.graphite;
 
-import org.elasticsearch.common.collect.Lists;
+import com.google.common.collect.Lists;
 import org.elasticsearch.common.component.LifecycleComponent;
-import org.elasticsearch.plugins.AbstractPlugin;
+import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.service.graphite.GraphiteService;
 
 import java.util.Collection;
 
-public class GraphitePlugin extends AbstractPlugin {
+public class GraphitePlugin extends Plugin {
 
     public String name() {
         return "graphite";
@@ -17,8 +17,8 @@ public class GraphitePlugin extends AbstractPlugin {
         return "Graphite Monitoring Plugin";
     }
 
-    @SuppressWarnings("rawtypes")
-    @Override public Collection<Class<? extends LifecycleComponent>> services() {
+    @Override
+    public Collection<Class<? extends LifecycleComponent>> nodeServices() {
         Collection<Class<? extends LifecycleComponent>> services = Lists.newArrayList();
         services.add(GraphiteService.class);
         return services;
