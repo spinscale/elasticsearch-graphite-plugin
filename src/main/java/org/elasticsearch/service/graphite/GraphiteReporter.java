@@ -194,13 +194,14 @@ public class GraphiteReporter {
             String id = type + ".gc." + collector.getName();
             sendInt(id, "collectionCount", collector.getCollectionCount());
             sendInt(id, "collectionTimeSeconds", collector.getCollectionTime().seconds());
+        }
 
-            for (JvmStats.BufferPool bufferPool : jvmStats.getBufferPools()) {
-                String bufferPoolType = type + ".buffer.pool." + bufferPool.getName();
-                sendInt(bufferPoolType, "totalCapacity", bufferPool.getTotalCapacity().bytes());
-                sendInt(bufferPoolType, "used", bufferPool.getUsed().bytes());
-                sendInt(bufferPoolType, "count", bufferPool.getCount());
-            }
+        //buffer pool
+        for (JvmStats.BufferPool bufferPool : jvmStats.getBufferPools()) {
+            String bufferPoolType = type + ".buffer.pool." + bufferPool.getName();
+            sendInt(bufferPoolType, "totalCapacity", bufferPool.getTotalCapacity().bytes());
+            sendInt(bufferPoolType, "used", bufferPool.getUsed().bytes());
+            sendInt(bufferPoolType, "count", bufferPool.getCount());
         }
     }
 
