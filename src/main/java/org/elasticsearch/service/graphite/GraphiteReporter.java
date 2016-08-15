@@ -6,20 +6,26 @@ import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.http.HttpStats;
 import org.elasticsearch.index.cache.filter.FilterCacheStats;
 import org.elasticsearch.index.cache.id.IdCacheStats;
+import org.elasticsearch.index.cache.query.QueryCacheStats;
+import org.elasticsearch.index.engine.SegmentsStats;
 import org.elasticsearch.index.fielddata.FieldDataStats;
 import org.elasticsearch.index.flush.FlushStats;
 import org.elasticsearch.index.get.GetStats;
 import org.elasticsearch.index.indexing.IndexingStats;
 import org.elasticsearch.index.merge.MergeStats;
+import org.elasticsearch.index.percolator.stats.PercolateStats;
 import org.elasticsearch.index.refresh.RefreshStats;
 import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.index.shard.DocsStats;
-import org.elasticsearch.index.shard.IndexShard;
+import org.elasticsearch.index.shard.service.IndexShard;
 import org.elasticsearch.index.store.StoreStats;
 import org.elasticsearch.index.warmer.WarmerStats;
 import org.elasticsearch.indices.NodeIndicesStats;
+import org.elasticsearch.indices.breaker.AllCircuitBreakerStats;
+import org.elasticsearch.indices.breaker.CircuitBreakerStats;
 import org.elasticsearch.monitor.fs.FsStats;
 import org.elasticsearch.monitor.jvm.JvmStats;
+import org.elasticsearch.monitor.jvm.JvmStats.GarbageCollector.LastGc;
 import org.elasticsearch.monitor.network.NetworkStats;
 import org.elasticsearch.monitor.os.OsStats;
 import org.elasticsearch.monitor.process.ProcessStats;
@@ -97,6 +103,18 @@ public class GraphiteReporter {
         sendNodeProcessStats(nodeStats.getProcess());
         sendNodeTransportStats(nodeStats.getTransport());
         sendNodeThreadPoolStats(nodeStats.getThreadPool());
+        sendNodeBreakerStats(nodeStats.getBreaker());
+    }
+
+    private void sendNodeBreakerStats(AllCircuitBreakerStats breaker) {
+        String type = buildMetricName("node.breaker");
+        for (CircuitBreakerStats stats : breaker.getAllStats()) {
+            String id = type + "." + stats.getName();
+            sendInt(id, "estimated", stats.getEstimated());
+            sendInt(id, "limit", stats.getLimit());
+            sendInt(id, "trippedCount", stats.getTrippedCount());
+            sendFloat(id, "overhead", stats.getOverhead());
+        }
     }
 
     private void sendNodeThreadPoolStats(ThreadPoolStats threadPoolStats) {
@@ -211,12 +229,15 @@ public class GraphiteReporter {
         sendInt(type + ".threads", "peakCount", jvmStats.threads().peakCount());
 
         // garbage collectors
+ 
         for (JvmStats.GarbageCollector collector : jvmStats.gc().collectors()) {
             String id = type + ".gc." + collector.name();
             sendInt(id, "collectionCount", collector.collectionCount());
             sendInt(id, "collectionTimeSeconds", collector.collectionTime().seconds());
+            
 
             JvmStats.GarbageCollector.LastGc lastGc = collector.lastGc();
+           
             String lastGcType = type + ".lastGc";
             if (lastGc != null) {
                 sendInt(lastGcType, "startTime", lastGc.startTime());
@@ -305,6 +326,34 @@ public class GraphiteReporter {
         sendRefreshStats(type + ".refresh", nodeIndicesStats.getRefresh());
         sendSearchStats(type + ".search", nodeIndicesStats.getSearch());
         sendFieldDataStats(type + ".fielddata", nodeIndicesStats.getFieldData());
+        sendSegmentsStats(type + ".segments", nodeIndicesStats.getSegments());
+        sendQueryCacheStats(type + ".querycache", nodeIndicesStats.getQueryCache());
+        sendPercolateStats(type + ".percolate", nodeIndicesStats.getPercolate());
+        
+    }
+
+    private void sendPercolateStats(String type, PercolateStats percolate) {
+        sendInt(type, "count", percolate.getCount());
+        sendInt(type, "current", percolate.getCurrent());
+        sendInt(type, "memorySizeInBytes", percolate.getMemorySizeInBytes());
+        sendInt(type, "numQueries", percolate.getNumQueries());
+        sendInt(type, "timeInMillis", percolate.getTimeInMillis());
+    }
+
+    private void sendQueryCacheStats(String type, QueryCacheStats queryCache) {
+        sendInt(type, "evictions", queryCache.getEvictions());
+        sendInt(type, "hitCount", queryCache.getHitCount());
+        sendInt(type, "memorySizeInBytes", queryCache.getMemorySizeInBytes());
+        sendInt(type, "missCount", queryCache.getMissCount());
+    }
+
+    private void sendSegmentsStats(String type, SegmentsStats segments) {
+        sendInt(type, "count", segments.getCount());
+        sendInt(type, "fixedBitSetMemoryInBytes", segments.getFixedBitSetMemoryInBytes());
+        sendInt(type, "indexWriterMaxMemoryInBytes", segments.getIndexWriterMaxMemoryInBytes());
+        sendInt(type, "indexWriterMemoryInBytes", segments.getIndexWriterMemoryInBytes());
+        sendInt(type, "memoryInBytes", segments.getMemoryInBytes());
+        sendInt(type, "versionMapMemoryInBytes", segments.getVersionMapMemoryInBytes());
     }
 
     private void sendSearchStats(String type, SearchStats searchStats) {
