@@ -25,6 +25,7 @@ public class NodeTestHelper {
         settingsBuilder.put("index.number_of_shards", 1);
         settingsBuilder.put("index.number_of_replicas", 1);
 
+        settingsBuilder.put("metrics.graphite.perIndex", true);
         settingsBuilder.put("metrics.graphite.host", "localhost");
         settingsBuilder.put("metrics.graphite.port", graphitePort);
         settingsBuilder.put("metrics.graphite.every", refreshInterval);

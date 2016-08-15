@@ -33,6 +33,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
     private final String graphitePrefix;
     private Pattern graphiteInclusionRegex;
     private Pattern graphiteExclusionRegex;
+    private final Boolean perIndexMetrics;
 
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
@@ -47,6 +48,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
         graphiteHost = settings.get("metrics.graphite.host");
         graphitePort = settings.getAsInt("metrics.graphite.port", 2003);
         graphitePrefix = settings.get("metrics.graphite.prefix", "elasticsearch" + "." + settings.get("cluster.name"));
+        perIndexMetrics = settings.getAsBoolean("metrics.graphite.perIndex", false);
         String graphiteInclusionRegexString = settings.get("metrics.graphite.include");
         if (graphiteInclusionRegexString != null) {
             graphiteInclusionRegex = Pattern.compile(graphiteInclusionRegexString);
@@ -105,7 +107,10 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
                     CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
                     NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
-                    List<IndexShard> indexShards = getIndexShards(indicesService);
+                    List<IndexShard> indexShards = null;
+                    if(perIndexMetrics){
+                        indexShards = getIndexShards(indicesService);
+                    }
 
                     GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
                             nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex);
@@ -123,7 +128,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                 }
             }
         }
-
+        
         private List<IndexShard> getIndexShards(IndicesService indicesService) {
             List<IndexShard> indexShards = Lists.newArrayList();
             Iterator<IndexService> indexServiceIterator = indicesService.iterator();
@@ -131,7 +136,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                 IndexService indexService = indexServiceIterator.next();
                 for (int shardId : indexService.shardIds()) {
                     indexShards.add(indexService.shard(shardId));
-                }
+               }
             }
             return indexShards;
         }

@@ -1,6 +1,7 @@
 package org.elasticsearch.service.graphite;
 
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
+import org.elasticsearch.common.hppc.ObjectLongOpenHashMap;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.http.HttpStats;
@@ -19,6 +20,7 @@ import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.index.shard.DocsStats;
 import org.elasticsearch.index.shard.service.IndexShard;
 import org.elasticsearch.index.store.StoreStats;
+import org.elasticsearch.index.suggest.stats.SuggestStats;
 import org.elasticsearch.index.warmer.WarmerStats;
 import org.elasticsearch.indices.NodeIndicesStats;
 import org.elasticsearch.indices.breaker.AllCircuitBreakerStats;
@@ -29,6 +31,7 @@ import org.elasticsearch.monitor.jvm.JvmStats.GarbageCollector.LastGc;
 import org.elasticsearch.monitor.network.NetworkStats;
 import org.elasticsearch.monitor.os.OsStats;
 import org.elasticsearch.monitor.process.ProcessStats;
+import org.elasticsearch.search.suggest.completion.CompletionStats;
 import org.elasticsearch.threadpool.ThreadPoolStats;
 import org.elasticsearch.transport.TransportStats;
 
@@ -48,7 +51,7 @@ public class GraphiteReporter {
     private Writer writer;
     private final String host;
     private final int port;
-    private final String prefix;
+    private final String prefix;    
     private List<IndexShard> indexShards;
     private NodeStats nodeStats;
     private final Pattern graphiteInclusionRegex;
@@ -62,7 +65,7 @@ public class GraphiteReporter {
                             Pattern graphiteInclusionRegex, Pattern graphiteExclusionRegex) {
         this.host = host;
         this.port = port;
-        this.prefix = prefix;
+        this.prefix = prefix;        
         this.indexShards = indexShards;
         this.nodeStats = nodeStats;
         this.graphiteInclusionRegex = graphiteInclusionRegex;
@@ -77,15 +80,30 @@ public class GraphiteReporter {
             socket = getSocket();
             writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
-            sendNodeIndicesStats();
-            sendIndexShardStats();
-            sendNodeStats();
-
-            writer.flush();
+            try{
+                sendNodeStats();
+            }catch(Exception e){
+                logException(e);
+            }
+            
+            try{
+                sendNodeIndicesStats();
+            }catch(Exception e){
+                logException(e);
+            }
+            
+            try{
+                if(indexShards != null){
+                    sendIndexShardStats();
+                }
+            }catch(Exception e){
+                logException(e);
+            }
+            
         } catch (Exception e) {
             logException(e);
-            flushWriter();
         } finally {
+            flushWriter();
             closeSocket(socket);
             writer = null;
         }
@@ -326,7 +344,20 @@ public class GraphiteReporter {
         sendSegmentsStats(type + ".segments", nodeIndicesStats.getSegments());
         sendQueryCacheStats(type + ".querycache", nodeIndicesStats.getQueryCache());
         sendPercolateStats(type + ".percolate", nodeIndicesStats.getPercolate());
+
+        sendMergeStats(type + ".merge", nodeIndicesStats.getMerge());
+        sendStoreStats(type + ".store", nodeIndicesStats.getStore());
+        sendSuggestStats(type + ".suggest", nodeIndicesStats.getSuggest());
         
+        //TODO.  Not needed now and not trivial.
+//        sendCompletionStats(type + ".completion", nodeIndicesStats.getCompletion());
+        
+    }
+
+    private void sendSuggestStats(String type, SuggestStats suggest) {
+        sendInt(type, "count", suggest.getCount());
+        sendInt(type, "current", suggest.getCurrent());
+        sendInt(type, "timeInMillis", suggest.getTimeInMillis());
     }
 
     private void sendPercolateStats(String type, PercolateStats percolate) {
