@@ -12,8 +12,8 @@ import org.elasticsearch.common.inject.Inject;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
-import org.elasticsearch.index.IndexService;
-import org.elasticsearch.index.shard.IndexShard;
+import org.elasticsearch.index.service.IndexService;
+import org.elasticsearch.index.shard.service.IndexShard;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.NodeIndicesStats;
 import org.elasticsearch.node.service.NodeService;
@@ -101,7 +101,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                 DiscoveryNode node = clusterService.localNode();
                 boolean isClusterStarted = clusterService.lifecycleState().equals(Lifecycle.State.STARTED);
 
-                if (isClusterStarted && node != null && node.isMasterNode()) {
+                if (isClusterStarted && node != null && (node.isMasterNode() || node.isDataNode())) {
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
                     CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
                     NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
