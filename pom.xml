@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>de.spinscale.elasticsearch</groupId>
     <artifactId>elasticsearch-plugin-graphite</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.6-RELEASE</version>
     <packaging>jar</packaging>
     <description>Graphite monitoring plugin for Elasticsearch</description>
-    <url>https://github.com/spinscale/elasticsearch-graphite-plugin/</url>
+    <url>https://github.com/ClarabridgeInc/elasticsearch-graphite-plugin/</url>
 
     <properties>
         <elasticsearch.version>1.4.5</elasticsearch.version>
