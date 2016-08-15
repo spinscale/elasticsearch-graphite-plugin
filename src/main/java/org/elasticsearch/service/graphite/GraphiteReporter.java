@@ -78,6 +78,9 @@ public class GraphiteReporter {
             writer.flush();
         } catch (Exception e) {
             logException(e);
+	    if (e.getMessage() != null && e.getMessage().contains("operations only allowed when started/relocated")) {
+	        try { Thread.sleep(1000); } catch (Exception ex) {}
+	    }
             flushWriter();
         } finally {
             closeSocket(socket);
