@@ -480,7 +480,7 @@ public class GraphiteReporter {
             writer.write('\n');
             writer.flush();
         } catch (IOException e) {
-            logger.error("Error sending to Graphite:", e);
+            logger.debug("Error sending to Graphite:", e);
         }
     }
 
@@ -505,7 +505,7 @@ public class GraphiteReporter {
             try {
                 writer.flush();
             } catch (IOException e1) {
-                logger.error("Error while flushing writer:", e1);
+                logger.debug("Error while flushing writer:", e1);
             }
         }
     }
@@ -519,16 +519,12 @@ public class GraphiteReporter {
             try {
                 socket.close();
             } catch (IOException e) {
-                logger.error("Error while closing socket:", e);
+                logger.debug("Error while closing socket:", e);
             }
         }
     }
 
     private void logException(Exception e) {
-        if (logger.isDebugEnabled()) {
-            logger.debug("Error writing to Graphite", e);
-        } else {
-            logger.warn("Error writing to Graphite: {}", e.getMessage());
-        }
+        logger.debug("Error writing to Graphite", e);
     }
 }

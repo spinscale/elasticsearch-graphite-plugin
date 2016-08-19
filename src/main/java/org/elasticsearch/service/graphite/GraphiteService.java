@@ -103,7 +103,7 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
                 DiscoveryNode node = clusterService.localNode();
                 boolean isClusterStarted = clusterService.lifecycleState().equals(Lifecycle.State.STARTED);
 
-                if (isClusterStarted && node != null && (node.isMasterNode() || node.isDataNode())) {
+                if (isClusterStarted && node != null && (node.isMasterNode() || node.isDataNode() || node.isClientNode()) ) {
                     NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
                     CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
                     NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
