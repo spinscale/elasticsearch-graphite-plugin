@@ -1,7 +1,6 @@
 package org.elasticsearch.service.graphite;
 
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
-import org.elasticsearch.common.hppc.ObjectLongOpenHashMap;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.http.HttpStats;
@@ -18,7 +17,7 @@ import org.elasticsearch.index.percolator.stats.PercolateStats;
 import org.elasticsearch.index.refresh.RefreshStats;
 import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.index.shard.DocsStats;
-import org.elasticsearch.index.shard.service.IndexShard;
+import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.store.StoreStats;
 import org.elasticsearch.index.suggest.stats.SuggestStats;
 import org.elasticsearch.index.warmer.WarmerStats;
@@ -27,11 +26,9 @@ import org.elasticsearch.indices.breaker.AllCircuitBreakerStats;
 import org.elasticsearch.indices.breaker.CircuitBreakerStats;
 import org.elasticsearch.monitor.fs.FsStats;
 import org.elasticsearch.monitor.jvm.JvmStats;
-import org.elasticsearch.monitor.jvm.JvmStats.GarbageCollector.LastGc;
 import org.elasticsearch.monitor.network.NetworkStats;
 import org.elasticsearch.monitor.os.OsStats;
 import org.elasticsearch.monitor.process.ProcessStats;
-import org.elasticsearch.search.suggest.completion.CompletionStats;
 import org.elasticsearch.threadpool.ThreadPoolStats;
 import org.elasticsearch.transport.TransportStats;
 
