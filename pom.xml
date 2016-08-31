@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>Clarabridge</groupId>
     <artifactId>elasticsearch-plugin-graphite</artifactId>
-    <version>0.7-RELEASE</version>
+    <version>1.7.5-RELEASE</version>
     <packaging>jar</packaging>
     <description>Graphite monitoring plugin for Elasticsearch</description>
     <url>https://github.com/ClarabridgeInc/elasticsearch-graphite-plugin/</url>
