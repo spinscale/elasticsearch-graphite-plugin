@@ -1,0 +1,4 @@
+grant {
+    //For classification support REST client, to be able to connect to CMP
+	permission java.net.SocketPermission "*", "connect,resolve";
+};
