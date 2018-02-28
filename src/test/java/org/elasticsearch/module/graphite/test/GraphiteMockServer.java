@@ -1,19 +1,18 @@
 package org.elasticsearch.module.graphite.test;
 
-import org.elasticsearch.common.collect.Lists;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.Collection;
 
 public class GraphiteMockServer extends Thread {
 
     private int port;
-    public Collection<String> content = Lists.newArrayList();
+    public Collection<String> content = new ArrayList<>();
     private ServerSocket server;
     private boolean isClosed = false;
 
