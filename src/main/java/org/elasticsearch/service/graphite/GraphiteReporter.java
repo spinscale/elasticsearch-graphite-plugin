@@ -158,11 +158,14 @@ public class GraphiteReporter {
 
     private void sendAdaptiveSelectionStats(AdaptiveSelectionStats adaptiveSelectionStats) {
         String type = buildMetricName("node.selection");
-//        if(adaptiveSelectionStats != null )
-//        ComputedNodeStats computedNodeStats = adaptiveSelectionStats.getComputedStats().get(this.id);
-//        sendInt(type + ".computed", "queueSize", computedNodeStats.queueSize);
-//        sendFloat(type + ".computed", "responseTime", computedNodeStats.responseTime);
-//        sendFloat(type + ".computed", "serviceTime", computedNodeStats.serviceTime);
+        if(adaptiveSelectionStats != null && adaptiveSelectionStats.getComputedStats() != null) {
+            ComputedNodeStats computedNodeStats = adaptiveSelectionStats.getComputedStats().get(this.id);
+            if(computedNodeStats != null) {
+                sendInt(type + ".computed", "queueSize", computedNodeStats.queueSize);
+                sendFloat(type + ".computed", "responseTime", computedNodeStats.responseTime);
+                sendFloat(type + ".computed", "serviceTime", computedNodeStats.serviceTime);
+            }
+        }
     }
 
     private void sendDiscoveryStats(DiscoveryStats discoveryStats) {
@@ -316,8 +319,10 @@ public class GraphiteReporter {
 
     private void sendNodeHttpStats(HttpStats httpStats) {
         String type = buildMetricName("node.http");
-        sendInt(type, "serverOpen", httpStats.getServerOpen());
-        sendInt(type, "totalOpen", httpStats.getTotalOpen());
+        if(httpStats != null) {
+            sendInt(type, "serverOpen", httpStats.getServerOpen());
+            sendInt(type, "totalOpen", httpStats.getTotalOpen());
+        }
     }
 
     private void sendNodeFsStats(FsInfo fs) {
@@ -340,7 +345,7 @@ public class GraphiteReporter {
         }
     }
 
-    private void sendIndexShardStats(String type, IndexShard indexShard) {
+    private void sendIndexShardStats(String type, IndexShard indexShard) {        
         sendSearchStats(type + ".search", indexShard.searchStats());
         sendGetStats(type + ".get", indexShard.getStats());
         sendDocsStats(type + ".docs", indexShard.docStats());

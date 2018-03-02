@@ -27,7 +27,7 @@ public class GraphitePlugin extends Plugin {
     public List<Setting<?>> getSettings() {
         return Arrays.asList(new Setting<?>[] { GraphiteService.EVERY_SETTING, GraphiteService.EXCLUDE,
                 GraphiteService.HOST_SETTING, GraphiteService.INCLUDE, GraphiteService.PER_INDEX,
-                GraphiteService.PORT_SETTING, GraphiteService.PREFIX });
+                GraphiteService.PORT_SETTING, GraphiteService.PREFIX, GraphiteService.INCLUDE_INDEXES });
     }
 
     public String description() {

@@ -1,8 +1,14 @@
 package org.elasticsearch.service.graphite;
 
+import static java.util.Collections.emptyList;
+
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 import org.elasticsearch.ElasticsearchException;
@@ -40,13 +46,14 @@ public class GraphiteService extends AbstractLifecycleComponent {
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
     
-    public static Setting<TimeValue> EVERY_SETTING = Setting.timeSetting("metrics.graphite.every", TimeValue.timeValueMinutes(1), Property.NodeScope);
+    public static Setting<TimeValue> EVERY_SETTING = Setting.timeSetting("metrics.graphite.every", TimeValue.timeValueMinutes(1), Property.Dynamic,Property.NodeScope);
     public static Setting<String> HOST_SETTING = Setting.simpleString("metrics.graphite.host", Property.NodeScope);
     public static Setting<Integer> PORT_SETTING = Setting.intSetting("metrics.graphite.port", 2003, Property.NodeScope);
     public static Setting<String> PREFIX = Setting.simpleString("metrics.graphite.prefix", Property.NodeScope);
     public static Setting<String> INCLUDE = Setting.simpleString("metrics.graphite.include", Property.NodeScope);
     public static Setting<String> EXCLUDE = Setting.simpleString("metrics.graphite.exclude", Property.NodeScope);
-    public static Setting<Boolean> PER_INDEX = Setting.boolSetting("metrics.graphite.perIndex", false, Property.NodeScope);
+    public static Setting<Boolean> PER_INDEX = Setting.boolSetting("metrics.graphite.perIndex", false, Property.Dynamic, Property.NodeScope);
+    public static Setting<List<String>> INCLUDE_INDEXES = Setting.listSetting("metrics.graphite.include.indexes", Arrays.asList(new String[]{"_all"}), Function.identity(), Property.NodeScope, Property.Dynamic);
 
     @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
                                    NodeService nodeService) {
@@ -141,16 +148,19 @@ public class GraphiteService extends AbstractLifecycleComponent {
         }
         
         private List<IndexShard> getIndexShards(IndicesService indicesService) {
+            Set<String> includeIndexes = new HashSet<>(settings.getAsList(INCLUDE_INDEXES.getKey()));
+            boolean all = includeIndexes.contains("_all");
             List<IndexShard> indexShards = new ArrayList<>();
             Iterator<IndexService> indexServiceIterator = indicesService.iterator();
             while (indexServiceIterator.hasNext()) {
                 IndexService indexService = indexServiceIterator.next();
-                for (int shardId : indexService.shardIds()) {
-                    IndexShard shard = indexService.getShardOrNull(shardId);
-                    if(shard != null) {
+                String indexName = indexService.getMetaData().getIndex().getName();
+                if(all || includeIndexes.contains(indexName)) {
+                    for (int shardId : indexService.shardIds()) {
+                        IndexShard shard = indexService.getShardOrNull(shardId);
                         indexShards.add(shard);
                     }
-               }
+                }
             }
             return indexShards;
         }

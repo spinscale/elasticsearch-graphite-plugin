@@ -1,169 +1,140 @@
 package org.elasticsearch.module.graphite.test;
 
+import static com.google.common.base.Predicates.containsPattern;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.common.inject.ProvisionException;
-import org.elasticsearch.node.Node;
-import org.junit.After;
-import org.junit.Before;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.plugin.graphite.GraphitePlugin;
+import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.service.graphite.GraphiteService;
+import org.elasticsearch.test.ESIntegTestCase;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.collect.Iterables;
 
-import java.util.UUID;
-
-import static com.google.common.base.Predicates.containsPattern;
-import static org.elasticsearch.module.graphite.test.NodeTestHelper.createNode;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
-
-public class GraphitePluginIntegrationTest {
+public class GraphitePluginIntegrationTest extends ESIntegTestCase{
 
     public static final int GRAPHITE_SERVER_PORT = 12345;
 
-    private GraphiteMockServer graphiteMockServer;
+    private static GraphiteMockServer graphiteMockServer;
+    private static String clusterName;
+    private static String index;
+    private static String type;
 
-    private String clusterName = UUID.randomUUID().toString().replaceAll("-", "");
-    private String index = UUID.randomUUID().toString().replaceAll("-", "");
-    private String type = UUID.randomUUID().toString().replaceAll("-", "");
-    private Node node;
+    @BeforeClass
+    public static void startGraphiteMockServerAndNode() throws Exception {
+        clusterName = "cluster" + randomShort();
+        index = "index" + randomShort();
+        type = "type" + randomShort();
+        
+        graphiteMockServer = new GraphiteMockServer(2003);
+        SpecialPermission.check();
+        AccessController.doPrivileged(new PrivilegedAction<Object>() {
+            public Object run() {
+                graphiteMockServer.start();
+                return null;
+            }
+        });
 
-    @Before
-    public void startGraphiteMockServerAndNode() throws Exception {
-        graphiteMockServer = new GraphiteMockServer(GRAPHITE_SERVER_PORT);
-        graphiteMockServer.start();
+        System.out.println("started");
     }
 
-    @After
-    public void stopGraphiteServer() throws Exception {
+    @AfterClass
+    public static void stopGraphiteServer() throws Exception {
         graphiteMockServer.close();
-        if (node != null && !node.isClosed()) {
-            node.close();
-        }
     }
+    
+    
+    @Override
+    protected Settings nodeSettings(int nodeOrdinal) {
+        return Settings.builder().put(super.nodeSettings(nodeOrdinal))
+                .put("metrics.graphite.prefix", "elasticsearch." +  clusterName)
+                .put("metrics.graphite.every", "1s")
+                .put("metrics.graphite.host", "localhost")
+                .put("metrics.graphite.perIndex", true)
+                .put(GraphiteService.INCLUDE_INDEXES.getKey(), index)
+                .put("metrics.graphite.port", "2003")
+                .put("metrics.graphite.include", ".*\\.gc.old.*")
+                .put("metrics.graphite.exclude", ".*\\.gc.*")
+               .build();
+    }
+
+    @Override
+    protected Collection<Class<? extends Plugin>> nodePlugins() {
+        List<Class<? extends Plugin>> plugins = new ArrayList<>();
+        plugins.add(GraphitePlugin.class);
+        return plugins;
+    }    
 
     @Test
     public void testThatIndexingResultsInMonitoring() throws Exception {
-        node = createNode(clusterName,  GRAPHITE_SERVER_PORT, "1s");
-        IndexResponse indexResponse = indexElement(node, index, type, "value");
+        IndexResponse indexResponse = indexElement(index, type, "value");
         assertThat(indexResponse.getId(), is(notNullValue()));
+        SearchResponse searchResponse = searchElement();
+        assertTrue(searchResponse != null);
 
         Thread.sleep(2000);
 
         ensureValidKeyNames();
-        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
-        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing." + type + ".indexCount 1");
-        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id.0.search._all.queryCount ");
-        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id...indexing._all.indexCount 1");
+        assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".indexes." + index + ".id...search._all.queryCount .");
         assertGraphiteMetricIsContained("^elasticsearch." + clusterName + ".node.search._all.queryCount ");
     }
 
     @Test
-    public void testThatFieldExclusionWorks() throws Exception {
-        String excludeRegex = ".*\\.peakCount";
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex, null);
-
-        IndexResponse indexResponse = indexElement(node, index, type, "value");
+    public void testThatFieldExclusionAndInclusionWorks() throws Exception {
+        IndexResponse indexResponse = indexElement(index, type, "value"+randomShort());
         assertThat(indexResponse.getId(), is(notNullValue()));
 
         Thread.sleep(2000);
 
         ensureValidKeyNames();
         // ensure no global exclusion
-        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
-        assertGraphiteMetricIsNotContained("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
-    }
-
-    @Test
-    public void testThatFieldExclusionWorksWithPrefix() throws Exception {
-        String prefix = "my.awesome.prefix";
-        String excludeRegex = prefix + ".node.[http|jvm].*";
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex, prefix);
-
-        IndexResponse indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.getId(), is(notNullValue()));
-
-        Thread.sleep(2000);
-
-        ensureValidKeyNames();
-        // ensure no global exclusion
-        assertGraphiteMetricIsContained(prefix + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
-        assertGraphiteMetricIsNotContained(prefix + ".node.jvm.threads.peakCount ");
-        assertGraphiteMetricIsNotContained(prefix + ".node.http.totalOpen ");
-    }
-
-    @Test
-    public void testThatFieldInclusionWinsOverExclusion() throws Exception {
-        String excludeRegex = ".*" + clusterName + ".*";
-        String includeRegex = ".*\\.peakCount";
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", includeRegex, excludeRegex, null);
-
-        IndexResponse indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.getId(), is(notNullValue()));
-
-        SearchResponse searchResponse = searchElement(node);
-        assertThat(searchResponse.status(), is(notNullValue()));
-
-        Thread.sleep(2000);
-
-        ensureValidKeyNames();
-        assertGraphiteMetricIsNotContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
-        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".node.jvm.threads.peakCount ");
-    }
-
-    @Test(expected = ProvisionException.class)
-    public void testThatBrokenRegexLeadsToException() throws Exception {
-        String excludeRegex = "*.peakCount";
-        createNode(clusterName, GRAPHITE_SERVER_PORT, "1s", null, excludeRegex, null);
-    }
-
-
-    @Test
-    public void masterFailOverShouldWork() throws Exception {
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s");
-        String clusterName = UUID.randomUUID().toString().replaceAll("-", "");
-        IndexResponse indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.getId(), is(notNullValue()));
-
-        Node origNode = node;
-        node = createNode(clusterName, GRAPHITE_SERVER_PORT, "1s");
-        graphiteMockServer.content.clear();
-        origNode.close();
-        indexResponse = indexElement(node, index, type, "value");
-        assertThat(indexResponse.getId(), is(notNullValue()));
-
-        // wait for master fail over and writing to graph reporter
-        Thread.sleep(2000);
-        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id.0.indexing._all.indexCount 1");
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id...indexing._all.indexCount .");
+        assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".node.jvm.gc.old.* ");
+        assertGraphiteMetricIsNotContained("elasticsearch." + clusterName + ".node.jvm.gc.new.* ");
     }
 
     // the stupid hamcrest matchers have compile erros depending whether they run on java6 or java7, so I rolled my own version
     // yes, I know this sucks... I want power asserts, as usual
     private void assertGraphiteMetricIsContained(final String id) {
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern(id)), is(true));
+        assertThat(Iterables.any(graphiteMockServer.getContent(), containsPattern(id)), is(true));
     }
 
     private void assertGraphiteMetricIsNotContained(final String id) {
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern(id)), is(false));
+        assertThat(Iterables.any(graphiteMockServer.getContent(), containsPattern(id)), is(false));
     }
 
     // Make sure no elements with a chars [] are included
     private void ensureValidKeyNames() {
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\.\\.")), is(false));
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\[")), is(false));
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\]")), is(false));
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\(")), is(false));
-        assertThat(Iterables.any(graphiteMockServer.content, containsPattern("\\)")), is(false));
+        List<String> content = new ArrayList<String>(graphiteMockServer.getContent());
+        assertThat(Iterables.any(content, containsPattern("\\.\\.")), is(false));
+        assertThat(Iterables.any(content, containsPattern("\\[")), is(false));
+        assertThat(Iterables.any(content, containsPattern("\\]")), is(false));
+        assertThat(Iterables.any(content, containsPattern("\\(")), is(false));
+        assertThat(Iterables.any(content, containsPattern("\\)")), is(false));
     }
 
-    private IndexResponse  indexElement(Node node, String index, String type, String fieldValue) {
-        return node.client().prepareIndex(index, type).
+    private IndexResponse  indexElement(String index, String type, String fieldValue) {
+        return client().prepareIndex(index, type).
                 setSource("field", fieldValue)
                 .execute().actionGet();
     }
 
-    private SearchResponse  searchElement(Node node) {
-        return node.client().prepareSearch().execute().actionGet();
+    private SearchResponse  searchElement() {
+        return client().prepareSearch(index).setQuery(QueryBuilders.matchAllQuery()).execute().actionGet();
     }
 }
