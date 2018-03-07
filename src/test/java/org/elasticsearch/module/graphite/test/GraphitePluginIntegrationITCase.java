@@ -25,7 +25,7 @@ import org.junit.Test;
 
 import com.google.common.collect.Iterables;
 
-public class GraphitePluginIntegrationTest extends ESIntegTestCase{
+public class GraphitePluginIntegrationITCase extends ESIntegTestCase{
 
     public static final int GRAPHITE_SERVER_PORT = 12345;
 
@@ -55,6 +55,9 @@ public class GraphitePluginIntegrationTest extends ESIntegTestCase{
     @AfterClass
     public static void stopGraphiteServer() throws Exception {
         graphiteMockServer.close();
+        for(String metric: graphiteMockServer.getContent()) {
+            System.out.println(metric);
+        }
     }
     
     
@@ -106,6 +109,7 @@ public class GraphitePluginIntegrationTest extends ESIntegTestCase{
         assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".indexes." + index + ".id...indexing._all.indexCount .");
         assertGraphiteMetricIsContained("elasticsearch." + clusterName + ".node.jvm.gc.old.* ");
         assertGraphiteMetricIsNotContained("elasticsearch." + clusterName + ".node.jvm.gc.new.* ");
+        
     }
 
     // the stupid hamcrest matchers have compile erros depending whether they run on java6 or java7, so I rolled my own version

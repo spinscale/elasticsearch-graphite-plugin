@@ -1,7 +1,5 @@
 package org.elasticsearch.service.graphite;
 
-import static java.util.Collections.emptyList;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -130,8 +128,9 @@ public class GraphiteService extends AbstractLifecycleComponent {
                             indexShards = getIndexShards(indicesService);
                         }
 
-                        GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
-                                nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex, node.getId(), start);
+                        StatsWriter statsWriter = new GraphiteStatsWriter(graphiteHost, graphitePort); 
+                        GraphiteReporter graphiteReporter = new GraphiteReporter(statsWriter, graphitePrefix,
+                                   nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex, node.getId(), start);
                         graphiteReporter.run();
                     } else {
                         if (node != null) {
