@@ -368,7 +368,7 @@ public class GraphiteReporterTest{
         when(indexShard.requestCache()).thenReturn(new ShardRequestCache());
         
         reporter.sendIndexShardStats("sometype", indexShard);
-        log.info("metrics: \n" + stringWriter);
+        log.debug("metrics: \n" + stringWriter);
         
         verify(indexShard).searchStats("_all");
         verify(indexShard).getStats();
@@ -389,27 +389,7 @@ public class GraphiteReporterTest{
         assertThat(stringWriter.toString(), containsString("sometype.writingBytes"));
         assertThat(stringWriter.toString(), containsString("sometype.shardBitsetFilterCacheSizeInBytes"));
         
-        this.assertionGenerator();
     }
-    
-//        sendInt(type, "indexBufferRAMBytesUsed", indexShard.getIndexBufferRAMBytesUsed());
-//        sendInt(type, "activeOperationsCount", indexShard.getActiveOperationsCount());
-//        sendInt(type, "writingBytes", indexShard.getWritingBytes());
-//        sendInt(type, "shardBitsetFilterCacheSizeInBytes", indexShard.shardBitsetFilterCache().getMemorySizeInBytes());
-//
-//        sendSearchStats(type + ".search", indexShard.searchStats("_all"));
-//        sendGetStats(type + ".get", indexShard.getStats());
-//        sendDocsStats(type + ".docs", indexShard.docStats());
-//        sendRefreshStats(type + ".refresh", indexShard.refreshStats());
-//        sendIndexingStats(type + ".indexing", indexShard.indexingStats("_all"));
-//        sendMergeStats(type + ".merge", indexShard.mergeStats());
-//        sendWarmerStats(type + ".warmer", indexShard.warmerStats());
-//        sendStoreStats(type + ".store", indexShard.storeStats());
-//        sendFlushStats(type + ".store", indexShard.flushStats());
-//        sendRecoveryStats(type + ".store", indexShard.recoveryStats());
-//        sendRequestCache(type + ".store", indexShard.requestCache().stats());
-//        sendTranslogStats(type + ".store", indexShard.translogStats());        
-//        sendIndexShardFieldDataStats(type + ".fielddata", indexShard.fieldDataStats("*"));
     
     @Test
     public void testSendStoreStats() {
@@ -695,7 +675,7 @@ public class GraphiteReporterTest{
         FieldDataStats stats = new FieldDataStats(1, 2, new FieldMemoryStats(a1));
 
         reporter.sendFieldDataStats("sometype", stats);
-        log.info("Metrics: \n{}", stringWriter);
+        log.debug("Metrics: \n{}", stringWriter);
         
         assertThat(stringWriter.toString(), containsString("sometype.memorySizeInBytes"));
         assertThat(stringWriter.toString(), containsString("sometype.evictions"));

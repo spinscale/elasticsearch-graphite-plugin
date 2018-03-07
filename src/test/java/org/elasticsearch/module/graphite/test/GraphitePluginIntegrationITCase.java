@@ -55,9 +55,6 @@ public class GraphitePluginIntegrationITCase extends ESIntegTestCase{
     @AfterClass
     public static void stopGraphiteServer() throws Exception {
         graphiteMockServer.close();
-        for(String metric: graphiteMockServer.getContent()) {
-            System.out.println(metric);
-        }
     }
     
     
