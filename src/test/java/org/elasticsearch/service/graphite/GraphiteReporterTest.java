@@ -24,6 +24,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.common.FieldMemoryStats;
+import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.discovery.DiscoveryStats;
 import org.elasticsearch.discovery.zen.PendingClusterStateStats;
 import org.elasticsearch.discovery.zen.PublishClusterStateStats;
@@ -115,7 +116,7 @@ public class GraphiteReporterTest{
         
         shards = ImmutableList.of(indexShard);
 
-        reporter = new GraphiteReporter(statsWriter, prefix, nodeIndicesStats, shards, nodeStats, null, null, "1", System.currentTimeMillis()); 
+        reporter = new GraphiteReporter(statsWriter, prefix, nodeIndicesStats, shards, nodeStats, null, null, "1", System.currentTimeMillis(), new StopWatch()); 
     }
     
     @Test

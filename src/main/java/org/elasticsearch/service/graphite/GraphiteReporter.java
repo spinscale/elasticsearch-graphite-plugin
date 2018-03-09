@@ -1,7 +1,6 @@
 package org.elasticsearch.service.graphite;
 
 import java.io.IOException;
-import java.math.BigInteger;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -10,6 +9,8 @@ import java.util.regex.Pattern;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.common.FieldMemoryStats;
+import org.elasticsearch.common.StopWatch;
+import org.elasticsearch.common.StopWatch.TaskInfo;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -17,7 +18,6 @@ import org.elasticsearch.discovery.DiscoveryStats;
 import org.elasticsearch.http.HttpStats;
 import org.elasticsearch.index.cache.query.QueryCacheStats;
 import org.elasticsearch.index.cache.request.RequestCacheStats;
-import org.elasticsearch.index.cache.request.ShardRequestCache;
 import org.elasticsearch.index.engine.SegmentsStats;
 import org.elasticsearch.index.fielddata.FieldDataStats;
 import org.elasticsearch.index.flush.FlushStats;
@@ -26,7 +26,6 @@ import org.elasticsearch.index.merge.MergeStats;
 import org.elasticsearch.index.recovery.RecoveryStats;
 import org.elasticsearch.index.refresh.RefreshStats;
 import org.elasticsearch.index.search.stats.SearchStats;
-import org.elasticsearch.index.seqno.SeqNoStats;
 import org.elasticsearch.index.shard.DocsStats;
 import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.shard.IndexShardState;
@@ -66,9 +65,10 @@ public class GraphiteReporter {
     private String id;
     private long start;
     private StatsWriter statsWriter = null;
+    private StopWatch stopWatch;
     
     public GraphiteReporter(StatsWriter statsWriter, String prefix, NodeIndicesStats nodeIndicesStats, List<IndexShard> indexShards, NodeStats nodeStats,
-            Pattern graphiteInclusionRegex, Pattern graphiteExclusionRegex, String id, long start) {
+            Pattern graphiteInclusionRegex, Pattern graphiteExclusionRegex, String id, long start, StopWatch stopWatch) {
         this.statsWriter = statsWriter;
         this.prefix = prefix;        
         this.indexShards = indexShards;
@@ -79,18 +79,21 @@ public class GraphiteReporter {
         this.nodeIndicesStats = nodeIndicesStats;
         this.id = id;
         this.start = start;
+        this.stopWatch = stopWatch;
     }
 
     public void run() {
         try {
             statsWriter.open();
             try{
+                logger.debug("Sending nodeStats to graphite");
                 sendNodeStats();
             }catch(Exception e){
                 logException(e);
             }
             
             try{
+                logger.debug("Sending nodeIndicesStats to graphite");
                 sendNodeIndicesStats();
             }catch(Exception e){
                 logException(e);
@@ -98,14 +101,20 @@ public class GraphiteReporter {
             
             try{
                 if(indexShards != null){
+                    logger.debug("Sending indexShardStats size: {}", indexShards.size());
                     sendIndexShardStats();
+                }else {
+                    logger.debug("Skip sending indexShardStats indexShards == null");
                 }
             }catch(Exception e){
                 logException(e);
             }
             
             long took = System.currentTimeMillis() - start;
-            sendInt(buildMetricName("plugin"), "ingestTimeInMillis", took);
+            sendInt(buildMetricName("plugin"), "totalTimeInMillis", took);
+            for(TaskInfo info:stopWatch.taskInfo()) {
+                sendInt(buildMetricName("plugin"), info.getTaskName() + "InMillis", info.getTime().getMillis());
+            }
         } catch (Exception e) {
             logException(e);
         } finally {
