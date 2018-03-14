@@ -1,14 +1,29 @@
 package org.elasticsearch.service.graphite;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.regex.Pattern;
+
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
-import org.elasticsearch.cluster.ClusterService;
 import org.elasticsearch.cluster.node.DiscoveryNode;
-import org.elasticsearch.common.collect.Lists;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.component.AbstractLifecycleComponent;
 import org.elasticsearch.common.component.Lifecycle;
 import org.elasticsearch.common.inject.Inject;
+import org.elasticsearch.common.settings.ClusterSettings;
+import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Setting.Property;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.EsExecutors;
@@ -16,53 +31,94 @@ import org.elasticsearch.index.IndexService;
 import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.indices.IndicesService;
 import org.elasticsearch.indices.NodeIndicesStats;
-import org.elasticsearch.node.service.NodeService;
+import org.elasticsearch.node.NodeService;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.regex.Pattern;
+public class GraphiteService extends AbstractLifecycleComponent {
 
-public class GraphiteService extends AbstractLifecycleComponent<GraphiteService> {
-
+    
+    enum StopWatchTypes { total, indices, node, shards};
+    
     private final ClusterService clusterService;
     private final IndicesService indicesService;
     private NodeService nodeService;
     private final String graphiteHost;
     private final Integer graphitePort;
-    private final TimeValue graphiteRefreshInternal;
+    private TimeValue graphiteRefreshInternal;
     private final String graphitePrefix;
     private Pattern graphiteInclusionRegex;
     private Pattern graphiteExclusionRegex;
-    private final Boolean perIndexMetrics;
+    private Boolean perIndexMetrics;
+    private Set<String> includeIndices;
 
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
+    
+    public static Setting<TimeValue> EVERY_SETTING = Setting.timeSetting("metrics.graphite.every", TimeValue.timeValueMinutes(1), Property.Dynamic,Property.NodeScope);
+    public static Setting<String> HOST_SETTING = Setting.simpleString("metrics.graphite.host", Property.NodeScope);
+    public static Setting<Integer> PORT_SETTING = Setting.intSetting("metrics.graphite.port", 2003, Property.NodeScope);
+    public static Setting<String> PREFIX = Setting.simpleString("metrics.graphite.prefix", Property.NodeScope);
+    public static Setting<String> INCLUDE = Setting.simpleString("metrics.graphite.include", Property.NodeScope);
+    public static Setting<String> EXCLUDE = Setting.simpleString("metrics.graphite.exclude", Property.NodeScope);
+    public static Setting<Boolean> PER_INDEX = Setting.boolSetting("metrics.graphite.perIndex", false, Property.Dynamic, Property.NodeScope);
+    public static Setting<List<String>> INCLUDE_INDEXES = Setting.listSetting("metrics.graphite.include.indexes", Arrays.asList(new String[]{"_all"}), Function.identity(), Property.NodeScope, Property.Dynamic);
+    
 
     @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
-                                   NodeService nodeService) {
+                                   NodeService nodeService, ClusterSettings clusterSettings) {
         super(settings);
         this.clusterService = clusterService;
         this.indicesService = indicesService;
         this.nodeService = nodeService;
-        graphiteRefreshInternal = settings.getAsTime("metrics.graphite.every", TimeValue.timeValueMinutes(1));
-        graphiteHost = settings.get("metrics.graphite.host");
-        graphitePort = settings.getAsInt("metrics.graphite.port", 2003);
+        graphiteRefreshInternal = EVERY_SETTING.get(settings);
+        graphiteHost = HOST_SETTING.get(settings);        
+        graphitePort = PORT_SETTING.get(settings);
+        
+        //no good way to do this
         graphitePrefix = settings.get("metrics.graphite.prefix", "elasticsearch" + "." + settings.get("cluster.name"));
-        perIndexMetrics = settings.getAsBoolean("metrics.graphite.perIndex", false);
-        String graphiteInclusionRegexString = settings.get("metrics.graphite.include");
+        perIndexMetrics = PER_INDEX.get(settings);
+        String graphiteInclusionRegexString = INCLUDE.get(settings);
         if (graphiteInclusionRegexString != null) {
             graphiteInclusionRegex = Pattern.compile(graphiteInclusionRegexString);
         }
-        String graphiteExclusionRegexString = settings.get("metrics.graphite.exclude");
+        String graphiteExclusionRegexString = EXCLUDE.get(settings);
         if (graphiteExclusionRegexString != null) {
             graphiteExclusionRegex = Pattern.compile(graphiteExclusionRegexString);
         }
+        
+        List<String> l = INCLUDE_INDEXES.get(settings);
+        if(l != null) {
+            includeIndices = new HashSet<>(l);
+        }
+        clusterSettings.addSettingsUpdateConsumer(INCLUDE_INDEXES, new Consumer<List<String>>() {
+            public void accept(List<String> t) {
+                Set<String> s = new HashSet<>();
+                if(t != null) {
+                    s.addAll(t);
+                }
+                includeIndices = s;
+                logger.info("include indices {}", includeIndices);
+            }
+        });
+        
+        clusterSettings.addSettingsUpdateConsumer(PER_INDEX, new Consumer<Boolean>() {
+            public void accept(Boolean b) {
+                perIndexMetrics = b;
+                logger.info("updating per index metric reporting");
+            }
+        });
+        clusterSettings.addSettingsUpdateConsumer(EVERY_SETTING, new Consumer<TimeValue>() {
+            public void accept(TimeValue t) {
+                graphiteRefreshInternal = t;
+                logger.info("updating graphite refresh interval new value {}", t);
+            }
+        });
     }
-
+        
+    
     @Override
     protected void doStart() throws ElasticsearchException {
         if (graphiteHost != null && graphiteHost.length() > 0) {
-            graphiteReporterThread = EsExecutors.daemonThreadFactory(settings, "graphite_reporter").newThread(new GraphiteReporterThread(graphiteInclusionRegex, graphiteExclusionRegex));
+            graphiteReporterThread = EsExecutors.daemonThreadFactory(settings, "graphite_reporter").newThread(new GraphiteReporterThread());
             graphiteReporterThread.start();
             StringBuilder sb = new StringBuilder();
             if (graphiteInclusionRegex != null) sb.append("include [").append(graphiteInclusionRegex).append("] ");
@@ -90,37 +146,42 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
 
     public class GraphiteReporterThread implements Runnable {
 
-        private final Pattern graphiteInclusionRegex;
-        private final Pattern graphiteExclusionRegex;
-
-        public GraphiteReporterThread(Pattern graphiteInclusionRegex, Pattern graphiteExclusionRegex) {
-            this.graphiteInclusionRegex = graphiteInclusionRegex;
-            this.graphiteExclusionRegex = graphiteExclusionRegex;
-        }
-
         public void run() {
             while (!closed) {
-                DiscoveryNode node = clusterService.localNode();
+                long start = System.currentTimeMillis();
                 boolean isClusterStarted = clusterService.lifecycleState().equals(Lifecycle.State.STARTED);
+                if(isClusterStarted) {
+                    DiscoveryNode node = clusterService.localNode();
+                    if(node != null) {
+                        StopWatch sw = new StopWatch();
+                        sw.start("indicesServiceStats");
+                        NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
+                        sw.stop();
+                        
+                        sw.start("nodeServiceStats");
+                        CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
+                        NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true, true, true, true);
+                        sw.stop();
+                        
+                        sw.start("indexShardsStats");
+                        List<IndexShard> indexShards = null;
+                        if(perIndexMetrics){
+                            //Passing indices for a little more thread safety 
+                            //since this can be updated via clusterSettings.
+                            indexShards = getIndexShards(includeIndices, indicesService);
+                        }
+                        sw.stop();
 
-                if (isClusterStarted && node != null) {
-                    NodeIndicesStats nodeIndicesStats = indicesService.stats(false);
-                    CommonStatsFlags commonStatsFlags = new CommonStatsFlags().clear();
-                    NodeStats nodeStats = nodeService.stats(commonStatsFlags, true, true, true, true, true, true, true, true, true);
-                    List<IndexShard> indexShards = null;
-                    if(perIndexMetrics){
-                        indexShards = getIndexShards(indicesService);
+                        StatsWriter statsWriter = new GraphiteStatsWriter(graphiteHost, graphitePort); 
+                        GraphiteReporter graphiteReporter = new GraphiteReporter(statsWriter, graphitePrefix, nodeIndicesStats, 
+                                indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex, node.getId(), start, sw);
+                        graphiteReporter.run();
+                    } else {
+                        logger.debug("Node is null.  No stats will be sent");
                     }
-
-                    GraphiteReporter graphiteReporter = new GraphiteReporter(graphiteHost, graphitePort, graphitePrefix,
-                            nodeIndicesStats, indexShards, nodeStats, graphiteInclusionRegex, graphiteExclusionRegex);
-                    graphiteReporter.run();
-                } else {
-                    if (node != null) {
-                        logger.debug("[{}]/[{}] is not master node, not triggering update", node.getId(), node.getName());
-                    }
+                }else {
+                    logger.debug("ClusterService isn't started.  No stats will be sent");
                 }
-
                 try {
                     Thread.sleep(graphiteRefreshInternal.millis());
                 } catch (InterruptedException e1) {
@@ -129,16 +190,23 @@ public class GraphiteService extends AbstractLifecycleComponent<GraphiteService>
             }
         }
         
-        private List<IndexShard> getIndexShards(IndicesService indicesService) {
-            List<IndexShard> indexShards = Lists.newArrayList();
+        private List<IndexShard> getIndexShards(Set<String> includes, IndicesService indicesService) {
+            boolean all = includes.contains("_all");
+            List<IndexShard> indexShards = new ArrayList<>();
             Iterator<IndexService> indexServiceIterator = indicesService.iterator();
             while (indexServiceIterator.hasNext()) {
                 IndexService indexService = indexServiceIterator.next();
-                for (int shardId : indexService.shardIds()) {
-                    indexShards.add(indexService.shard(shardId));
-               }
+                String indexName = indexService.getMetaData().getIndex().getName();
+                if(all || includes.contains(indexName)) {
+                    for (int shardId : indexService.shardIds()) {
+                        IndexShard shard = indexService.getShardOrNull(shardId);
+                        indexShards.add(shard);
+                    }
+                }
             }
             return indexShards;
         }
+        
     }
+    
 }

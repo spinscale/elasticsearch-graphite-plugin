@@ -1,19 +1,23 @@
 package org.elasticsearch.module.graphite.test;
 
-import org.elasticsearch.common.collect.Lists;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+
+import org.elasticsearch.SpecialPermission;
 
 public class GraphiteMockServer extends Thread {
 
     private int port;
-    public Collection<String> content = Lists.newArrayList();
+    private Collection<String> content = Collections.synchronizedCollection(new ArrayList<String>());
     private ServerSocket server;
     private boolean isClosed = false;
 
@@ -23,6 +27,7 @@ public class GraphiteMockServer extends Thread {
 
     @Override
     public void run() {
+        
         try {
             server = new ServerSocket(port);
             Socket client;
@@ -30,13 +35,25 @@ public class GraphiteMockServer extends Thread {
             while (!isClosed) {
                 if (server.isClosed()) return;
 
-                client = server.accept();
+                
+                client = AccessController.doPrivileged(new PrivilegedAction<Socket>() {
+                    public Socket run() {
+                        try {
+                            return server.accept();
+                        } catch (IOException e) {                            
+                            return null;
+                        }
+                    }
+                });
+                if(client != null) {
+                    BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 
-                BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-
-                String msg;
-                while ((msg = in.readLine()) != null) {
-                    content.add(msg.trim());
+                    String msg;
+                    synchronized (content) {
+                        while ((msg = in.readLine()) != null) {
+                            content.add(msg.trim());
+                        }
+                    }
                 }
             }
 
@@ -44,6 +61,12 @@ public class GraphiteMockServer extends Thread {
             if (!(e instanceof SocketException)) {
                 e.printStackTrace();
             }
+        }
+    }
+    
+    public Collection<String> getContent(){
+        synchronized(content) {
+            return new ArrayList<>(content);
         }
     }
 
