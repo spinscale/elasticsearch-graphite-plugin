@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>clarabridge</groupId>
     <artifactId>elasticsearch-plugin-graphite</artifactId>
-    <version>6.2.1-0-RELEASE</version>
+    <version>6.4.3-0-RELEASE</version>
     <packaging>jar</packaging>
     <description>Graphite monitoring plugin for Elasticsearch</description>
     <url>https://github.com/ClarabridgeInc/elasticsearch-graphite-plugin/</url>
@@ -22,9 +22,9 @@
         </snapshotRepository>
     </distributionManagement>
     <properties>
-        <elasticsearch.version>6.2.1</elasticsearch.version>
+        <elasticsearch.version>6.4.3</elasticsearch.version>
         <hamcrest.version>1.3</hamcrest.version>
-        <lucene.version>7.2.1</lucene.version>
+        <lucene.version>7.4.0</lucene.version>
     </properties>
 
     <dependencies>
