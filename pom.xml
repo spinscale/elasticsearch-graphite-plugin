@@ -101,6 +101,9 @@
                     </goals>
                   </execution>
                 </executions>
+                <configuration>
+                    <argLine>-Dtests.security.manager=false</argLine>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
