@@ -13,7 +13,7 @@ As plugins (except site plugins) cannot be automatically installed from github c
 git clone https://github.com/spinscale/elasticsearch-graphite-plugin
 cd elasticsearch-graphite-plugin
 mvn package
-/path/to/elasticsearch/bin/plugin -install graphite -url file:///absolute/path/to/current/dir/target/releases/elasticsearch-plugin-graphite-6.2.1-0-RELEASE.zip
+/path/to/elasticsearch/bin/plugin -install graphite -url file:///absolute/path/to/current/dir/target/releases/elasticsearch-plugin-graphite-6.4.3-0-RELEASE.zip
 ```
 
 NOTES:  Integration test has been move to IT and surefire will only test on deploy task.
