@@ -1,3 +1,7 @@
+# UNMAINTAINED
+
+This plugin is very old and not maintained anymore. If you want to upgrade it, please fork it. I am happy to link to a maintained version.
+
 # Elasticsearch graphite plugin
 
 This plugin creates a little push service, which regularly updates a graphite host with indices stats and nodes stats. In case you are running a cluster, these datas are always only pushed from the master node.
