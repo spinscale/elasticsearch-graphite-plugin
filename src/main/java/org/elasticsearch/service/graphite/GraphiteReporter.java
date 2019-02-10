@@ -4,25 +4,30 @@ import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.common.logging.ESLogger;
 import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.http.HttpStats;
-import org.elasticsearch.index.cache.filter.FilterCacheStats;
-import org.elasticsearch.index.cache.id.IdCacheStats;
+import org.elasticsearch.index.cache.query.QueryCacheStats;
+import org.elasticsearch.index.cache.request.RequestCacheStats;
+import org.elasticsearch.index.engine.SegmentsStats;
 import org.elasticsearch.index.fielddata.FieldDataStats;
 import org.elasticsearch.index.flush.FlushStats;
 import org.elasticsearch.index.get.GetStats;
 import org.elasticsearch.index.indexing.IndexingStats;
 import org.elasticsearch.index.merge.MergeStats;
+import org.elasticsearch.index.percolator.stats.PercolateStats;
+import org.elasticsearch.index.recovery.RecoveryStats;
 import org.elasticsearch.index.refresh.RefreshStats;
 import org.elasticsearch.index.search.stats.SearchStats;
 import org.elasticsearch.index.shard.DocsStats;
 import org.elasticsearch.index.shard.IndexShard;
 import org.elasticsearch.index.store.StoreStats;
+import org.elasticsearch.index.suggest.stats.SuggestStats;
+import org.elasticsearch.index.translog.TranslogStats;
 import org.elasticsearch.index.warmer.WarmerStats;
 import org.elasticsearch.indices.NodeIndicesStats;
-import org.elasticsearch.monitor.fs.FsStats;
+import org.elasticsearch.monitor.fs.FsInfo;
 import org.elasticsearch.monitor.jvm.JvmStats;
-import org.elasticsearch.monitor.network.NetworkStats;
 import org.elasticsearch.monitor.os.OsStats;
 import org.elasticsearch.monitor.process.ProcessStats;
+import org.elasticsearch.search.suggest.completion.CompletionStats;
 import org.elasticsearch.threadpool.ThreadPoolStats;
 import org.elasticsearch.transport.TransportStats;
 
@@ -39,16 +44,16 @@ import java.util.regex.Pattern;
 public class GraphiteReporter {
 
     private static final ESLogger logger = ESLoggerFactory.getLogger(GraphiteReporter.class.getName());
-    private Writer writer;
     private final String host;
     private final int port;
     private final String prefix;
-    private List<IndexShard> indexShards;
-    private NodeStats nodeStats;
     private final Pattern graphiteInclusionRegex;
     private final Pattern graphiteExclusionRegex;
     private final String timestamp;
     private final NodeIndicesStats nodeIndicesStats;
+    private Writer writer;
+    private List<IndexShard> indexShards;
+    private NodeStats nodeStats;
 
 
     public GraphiteReporter(String host, int port, String prefix, NodeIndicesStats nodeIndicesStats,
@@ -89,7 +94,6 @@ public class GraphiteReporter {
         sendNodeFsStats(nodeStats.getFs());
         sendNodeHttpStats(nodeStats.getHttp());
         sendNodeJvmStats(nodeStats.getJvm());
-        sendNodeNetworkStats(nodeStats.getNetwork());
         sendNodeOsStats(nodeStats.getOs());
         sendNodeProcessStats(nodeStats.getProcess());
         sendNodeTransportStats(nodeStats.getTransport());
@@ -124,108 +128,81 @@ public class GraphiteReporter {
     private void sendNodeProcessStats(ProcessStats processStats) {
         String type = buildMetricName("node.process");
 
-        sendInt(type, "openFileDescriptors", processStats.openFileDescriptors());
-        if (processStats.cpu() != null) {
-            sendInt(type + ".cpu", "percent", processStats.cpu().percent());
-            sendInt(type + ".cpu", "sysSeconds", processStats.cpu().sys().seconds());
-            sendInt(type + ".cpu", "totalSeconds", processStats.cpu().total().seconds());
-            sendInt(type + ".cpu", "userSeconds", processStats.cpu().user().seconds());
+        sendInt(type, "openFileDescriptors", processStats.getOpenFileDescriptors());
+        ProcessStats.Cpu cpu = processStats.getCpu();
+        if (cpu != null) {
+            sendInt(type + ".cpu", "percent", cpu.getPercent());
+            sendInt(type + ".cpu", "totalSeconds", cpu.getTotal().seconds());
         }
 
-        if (processStats.mem() != null) {
-            sendInt(type + ".mem", "totalVirtual", processStats.mem().totalVirtual().bytes());
-            sendInt(type + ".mem", "resident", processStats.mem().resident().bytes());
-            sendInt(type + ".mem", "share", processStats.mem().share().bytes());
+        ProcessStats.Mem mem = processStats.getMem();
+        if (mem != null) {
+            sendInt(type + ".mem", "totalVirtual", mem.getTotalVirtual().bytes());
         }
     }
 
     private void sendNodeOsStats(OsStats osStats) {
         String type = buildMetricName("node.os");
 
-        if (osStats.cpu() != null) {
-            sendInt(type + ".cpu", "sys", osStats.cpu().sys());
-            sendInt(type + ".cpu", "idle", osStats.cpu().idle());
-            sendInt(type + ".cpu", "user", osStats.cpu().user());
+        sendInt(type + ".cpu", "percent", osStats.getCpuPercent());
+        sendFloat(type + ".cpu", "average", osStats.getLoadAverage());
+
+        OsStats.Mem mem = osStats.getMem();
+        if (mem != null) {
+            sendInt(type + ".mem", "freeBytes", mem.getFree().bytes());
+            sendInt(type + ".mem", "usedBytes", mem.getUsed().bytes());
+            sendInt(type + ".mem", "freePercent", mem.getFreePercent());
+            sendInt(type + ".mem", "usedPercent", mem.getUsedPercent());
         }
 
-        if (osStats.mem() != null) {
-            sendInt(type + ".mem", "freeBytes", osStats.mem().free().bytes());
-            sendInt(type + ".mem", "usedBytes", osStats.mem().used().bytes());
-            sendInt(type + ".mem", "freePercent", osStats.mem().freePercent());
-            sendInt(type + ".mem", "usedPercent", osStats.mem().usedPercent());
-            sendInt(type + ".mem", "actualFreeBytes", osStats.mem().actualFree().bytes());
-            sendInt(type + ".mem", "actualUsedBytes", osStats.mem().actualUsed().bytes());
-        }
-
-        if (osStats.swap() != null) {
-            sendInt(type + ".swap", "freeBytes", osStats.swap().free().bytes());
-            sendInt(type + ".swap", "usedBytes", osStats.swap().used().bytes());
-        }
-    }
-
-    private void sendNodeNetworkStats(NetworkStats networkStats) {
-        String type = buildMetricName("node.network.tcp");
-        NetworkStats.Tcp tcp = networkStats.tcp();
-
-        // might be null, if sigar isnt loaded
-        if (tcp != null) {
-            sendInt(type, "activeOpens", tcp.activeOpens());
-            sendInt(type, "passiveOpens", tcp.passiveOpens());
-            sendInt(type, "attemptFails", tcp.attemptFails());
-            sendInt(type, "estabResets", tcp.estabResets());
-            sendInt(type, "currEstab", tcp.currEstab());
-            sendInt(type, "inSegs", tcp.inSegs());
-            sendInt(type, "outSegs", tcp.outSegs());
-            sendInt(type, "retransSegs", tcp.retransSegs());
-            sendInt(type, "inErrs", tcp.inErrs());
-            sendInt(type, "outRsts", tcp.outRsts());
+        OsStats.Swap swap = osStats.getSwap();
+        if (swap != null) {
+            sendInt(type + ".swap", "freeBytes", swap.getFree().bytes());
+            sendInt(type + ".swap", "usedBytes", swap.getUsed().bytes());
         }
     }
 
     private void sendNodeJvmStats(JvmStats jvmStats) {
         String type = buildMetricName("node.jvm");
-        sendInt(type, "uptime", jvmStats.uptime().seconds());
+        sendInt(type, "uptime", jvmStats.getUptime().seconds());
 
         // mem
-        sendInt(type + ".mem", "heapCommitted", jvmStats.mem().heapCommitted().bytes());
-        sendInt(type + ".mem", "heapUsed", jvmStats.mem().heapUsed().bytes());
-        sendInt(type + ".mem", "nonHeapCommitted", jvmStats.mem().nonHeapCommitted().bytes());
-        sendInt(type + ".mem", "nonHeapUsed", jvmStats.mem().nonHeapUsed().bytes());
+        JvmStats.Mem mem = jvmStats.getMem();
+        sendInt(type + ".mem", "heapCommitted", mem.getHeapCommitted().bytes());
+        sendInt(type + ".mem", "heapUsed", mem.getHeapUsed().bytes());
+        sendInt(type + ".mem", "nonHeapCommitted", mem.getNonHeapCommitted().bytes());
+        sendInt(type + ".mem", "nonHeapUsed", mem.getNonHeapUsed().bytes());
 
-        Iterator<JvmStats.MemoryPool> memoryPoolIterator = jvmStats.mem().iterator();
+        Iterator<JvmStats.MemoryPool> memoryPoolIterator = mem.iterator();
         while (memoryPoolIterator.hasNext()) {
             JvmStats.MemoryPool memoryPool = memoryPoolIterator.next();
-            String memoryPoolType = type + ".mem.pool." + memoryPool.name();
+            String memoryPoolType = type + ".mem.pool." + memoryPool.getName();
 
-            sendInt(memoryPoolType, "max", memoryPool.max().bytes());
-            sendInt(memoryPoolType, "used", memoryPool.used().bytes());
-            sendInt(memoryPoolType, "peakUsed", memoryPool.peakUsed().bytes());
-            sendInt(memoryPoolType, "peakMax", memoryPool.peakMax().bytes());
+            sendInt(memoryPoolType, "max", memoryPool.getMax().bytes());
+            sendInt(memoryPoolType, "used", memoryPool.getUsed().bytes());
+            sendInt(memoryPoolType, "peakUsed", memoryPool.getPeakUsed().bytes());
+            sendInt(memoryPoolType, "peakMax", memoryPool.getPeakMax().bytes());
         }
 
         // threads
-        sendInt(type + ".threads", "count", jvmStats.threads().count());
-        sendInt(type + ".threads", "peakCount", jvmStats.threads().peakCount());
+        JvmStats.Threads threads = jvmStats.getThreads();
+        sendInt(type + ".threads", "count", threads.getCount());
+        sendInt(type + ".threads", "peakCount", threads.getPeakCount());
 
         // garbage collectors
-        for (JvmStats.GarbageCollector collector : jvmStats.gc().collectors()) {
-            String id = type + ".gc." + collector.name();
-            sendInt(id, "collectionCount", collector.collectionCount());
-            sendInt(id, "collectionTimeSeconds", collector.collectionTime().seconds());
-
-            JvmStats.GarbageCollector.LastGc lastGc = collector.lastGc();
-            String lastGcType = type + ".lastGc";
-            if (lastGc != null) {
-                sendInt(lastGcType, "startTime", lastGc.startTime());
-                sendInt(lastGcType, "endTime", lastGc.endTime());
-                sendInt(lastGcType, "max", lastGc.max().bytes());
-                sendInt(lastGcType, "beforeUsed", lastGc.beforeUsed().bytes());
-                sendInt(lastGcType, "afterUsed", lastGc.afterUsed().bytes());
-                sendInt(lastGcType, "durationSeconds", lastGc.duration().seconds());
-            }
+        for (JvmStats.GarbageCollector collector : jvmStats.getGc().getCollectors()) {
+            String id = type + ".gc." + collector.getName();
+            sendInt(id, "collectionCount", collector.getCollectionCount());
+            sendInt(id, "collectionTimeSeconds", collector.getCollectionTime().seconds());
         }
 
-        // TODO: bufferPools - where to get them?
+        //buffer pool
+        for (JvmStats.BufferPool bufferPool : jvmStats.getBufferPools()) {
+            String bufferPoolType = type + ".buffer.pool." + bufferPool.getName();
+            sendInt(bufferPoolType, "totalCapacity", bufferPool.getTotalCapacity().bytes());
+            sendInt(bufferPoolType, "used", bufferPool.getUsed().bytes());
+            sendInt(bufferPoolType, "count", bufferPool.getCount());
+        }
     }
 
     private void sendNodeHttpStats(HttpStats httpStats) {
@@ -234,21 +211,15 @@ public class GraphiteReporter {
         sendInt(type, "totalOpen", httpStats.getTotalOpen());
     }
 
-    private void sendNodeFsStats(FsStats fs) {
-        Iterator<FsStats.Info> infoIterator = fs.iterator();
+    private void sendNodeFsStats(FsInfo fs) {
+        Iterator<FsInfo.Path> infoIterator = fs.iterator();
         int i = 0;
         while (infoIterator.hasNext()) {
             String type = buildMetricName("node.fs") + i;
-            FsStats.Info info = infoIterator.next();
-            sendInt(type, "available", info.getAvailable().bytes());
-            sendInt(type, "total", info.getTotal().bytes());
-            sendInt(type, "free", info.getFree().bytes());
-            sendInt(type, "diskReads", info.getDiskReads());
-            sendInt(type, "diskReadsInBytes", info.getDiskReadSizeInBytes());
-            sendInt(type, "diskWrites", info.getDiskWrites());
-            sendInt(type, "diskWritesInBytes", info.getDiskWriteSizeInBytes());
-            sendFloat(type, "diskQueue", info.getDiskQueue());
-            sendFloat(type, "diskService", info.getDiskServiceTime());
+            FsInfo.Path path = infoIterator.next();
+            sendInt(type, "available", path.getAvailable().bytes());
+            sendInt(type, "total", path.getTotal().bytes());
+            sendInt(type, "free", path.getFree().bytes());
             i++;
         }
     }
@@ -267,8 +238,60 @@ public class GraphiteReporter {
         sendRefreshStats(type + ".refresh", indexShard.refreshStats());
         sendIndexingStats(type + ".indexing", indexShard.indexingStats("_all"));
         sendMergeStats(type + ".merge", indexShard.mergeStats());
-        sendWarmerStats(type + ".warmer", indexShard.warmerStats());
         sendStoreStats(type + ".store", indexShard.storeStats());
+        sendFieldDataStats(type + ".fielddata", indexShard.fieldDataStats());
+        sendCompletionStats(type + ".completion", indexShard.completionStats());
+        sendSuggestStats(type + ".suggest", indexShard.suggestStats());
+        sendSegmentsStats(type + ".segments", indexShard.segmentStats());
+        sendRecoveryStats(type + ".recovery", indexShard.recoveryStats());
+        sendQueryCacheStats(type + ".querycache", indexShard.queryCacheStats());
+        sendTranslogStats(type + ".translog", indexShard.translogStats());
+        sendFlushStats(type + ".flush", indexShard.flushStats());
+        sendWarmerStats(type + ".warmer", indexShard.warmerStats());
+    }
+
+    private void sendTranslogStats(String type, TranslogStats translog) {
+        sendInt(type, "estimatedNumberOfOperations", translog.estimatedNumberOfOperations());
+        sendInt(type, "sizeInBytes", translog.getTranslogSizeInBytes());
+    }
+
+    private void sendQueryCacheStats(String type, QueryCacheStats queryCache) {
+        sendInt(type, "evictions", queryCache.getEvictions());
+        sendInt(type, "hitCount", queryCache.getHitCount());
+        sendInt(type, "missCount", queryCache.getMissCount());
+        sendInt(type, "memorySizeInBytes", queryCache.getMemorySizeInBytes());
+        sendInt(type, "cacheCount", queryCache.getCacheCount());
+        sendInt(type, "cacheSize", queryCache.getCacheSize());
+        sendInt(type, "totalCount", queryCache.getTotalCount());
+    }
+
+    private void sendRecoveryStats(String type, RecoveryStats recovery) {
+        sendInt(type, "currentAsSource", recovery.currentAsSource());
+        sendInt(type, "currentAsTarget", recovery.currentAsTarget());
+    }
+
+    private void sendSegmentsStats(String type, SegmentsStats segments) {
+        sendInt(type, "count", segments.getCount());
+        sendInt(type, "memoryInBytes", segments.getMemoryInBytes());
+        sendInt(type, "bitsetMemoryInBytes", segments.getBitsetMemoryInBytes());
+        sendInt(type, "docValuesMemoryInBytes", segments.getDocValuesMemoryInBytes());
+        sendInt(type, "indexWriterMaxMemoryInBytes", segments.getIndexWriterMaxMemoryInBytes());
+        sendInt(type, "indexWriterMemoryInBytes", segments.getIndexWriterMemoryInBytes());
+        sendInt(type, "normsMemoryInBytes", segments.getNormsMemoryInBytes());
+        sendInt(type, "storedFieldsMemoryInBytes", segments.getStoredFieldsMemoryInBytes());
+        sendInt(type, "termVectorsMemoryInBytes", segments.getTermVectorsMemoryInBytes());
+        sendInt(type, "termsMemoryInBytes", segments.getTermsMemoryInBytes());
+        sendInt(type, "versionMapMemoryInBytes", segments.getVersionMapMemoryInBytes());
+    }
+
+    private void sendSuggestStats(String type, SuggestStats suggest) {
+        sendInt(type, "count", suggest.getCount());
+        sendInt(type, "current", suggest.getCurrent());
+        sendInt(type, "timeInMillis", suggest.getTimeInMillis());
+    }
+
+    private void sendCompletionStats(String type, CompletionStats completion) {
+        sendInt(type, "sizeInBytes", completion.getSizeInBytes());
     }
 
     private void sendStoreStats(String type, StoreStats storeStats) {
@@ -293,22 +316,44 @@ public class GraphiteReporter {
 
     private void sendNodeIndicesStats() {
         String type = buildMetricName("node");
-        sendFilterCacheStats(type + ".filtercache", nodeIndicesStats.getFilterCache());
-        sendIdCacheStats(type + ".idcache", nodeIndicesStats.getIdCache());
-        sendDocsStats(type + ".docs", nodeIndicesStats.getDocs());
-        sendFlushStats(type + ".flush", nodeIndicesStats.getFlush());
-        sendGetStats(type + ".get", nodeIndicesStats.getGet());
-        sendIndexingStats(type + ".indexing", nodeIndicesStats.getIndexing());
-        sendRefreshStats(type + ".refresh", nodeIndicesStats.getRefresh());
         sendSearchStats(type + ".search", nodeIndicesStats.getSearch());
+        sendGetStats(type + ".get", nodeIndicesStats.getGet());
+        sendDocsStats(type + ".docs", nodeIndicesStats.getDocs());
+        sendRefreshStats(type + ".refresh", nodeIndicesStats.getRefresh());
+        sendIndexingStats(type + ".indexing", nodeIndicesStats.getIndexing());
+        sendMergeStats(type + ".merge", nodeIndicesStats.getMerge());
+        sendStoreStats(type + ".store", nodeIndicesStats.getStore());
         sendFieldDataStats(type + ".fielddata", nodeIndicesStats.getFieldData());
+        sendCompletionStats(type + ".completion", nodeIndicesStats.getCompletion());
+        sendSuggestStats(type + ".suggest", nodeIndicesStats.getSuggest());
+        sendSegmentsStats(type + ".segments", nodeIndicesStats.getSegments());
+        sendRecoveryStats(type + ".recovery", nodeIndicesStats.getRecoveryStats());
+        sendQueryCacheStats(type + ".querycache", nodeIndicesStats.getQueryCache());
+        sendFlushStats(type + ".flush", nodeIndicesStats.getFlush());
+        sendRequestCacheStats(type + ".requestcache", nodeIndicesStats.getRequestCache());
+        sendPercolateStats(type + ".percolate", nodeIndicesStats.getPercolate());
+    }
+
+    private void sendPercolateStats(String type, PercolateStats percolate) {
+        sendInt(type, "count", percolate.getCount());
+        sendInt(type, "current", percolate.getCurrent());
+        sendInt(type, "memorySizeInBytes", percolate.getMemorySizeInBytes());
+        sendInt(type, "numQueries", percolate.getNumQueries());
+        sendInt(type, "timeInMillis", percolate.getTimeInMillis());
+    }
+
+    private void sendRequestCacheStats(String type, RequestCacheStats requestCache) {
+        sendInt(type, "evictions", requestCache.getEvictions());
+        sendInt(type, "hitCount", requestCache.getHitCount());
+        sendInt(type, "missCount", requestCache.getMissCount());
+        sendInt(type, "memorySizeInBytes", requestCache.getMemorySizeInBytes());
     }
 
     private void sendSearchStats(String type, SearchStats searchStats) {
         SearchStats.Stats totalSearchStats = searchStats.getTotal();
         sendSearchStatsStats(type + "._all", totalSearchStats);
 
-        if (searchStats.getGroupStats() != null ) {
+        if (searchStats.getGroupStats() != null) {
             for (Map.Entry<String, SearchStats.Stats> statsEntry : searchStats.getGroupStats().entrySet()) {
                 sendSearchStatsStats(type + "." + statsEntry.getKey(), statsEntry.getValue());
             }
@@ -368,15 +413,6 @@ public class GraphiteReporter {
         sendInt(name, "deleted", docsStats.getDeleted());
     }
 
-    private void sendIdCacheStats(String name, IdCacheStats idCache) {
-        sendInt(name, "memorySizeInBytes", idCache.getMemorySizeInBytes());
-    }
-
-    private void sendFilterCacheStats(String name, FilterCacheStats filterCache) {
-        sendInt(name, "memorySizeInBytes", filterCache.getMemorySizeInBytes());
-        sendInt(name, "evictions", filterCache.getEvictions());
-    }
-
     private void sendFieldDataStats(String name, FieldDataStats fieldDataStats) {
         sendInt(name, "memorySizeInBytes", fieldDataStats.getMemorySizeInBytes());
         sendInt(name, "evictions", fieldDataStats.getEvictions());
@@ -388,7 +424,7 @@ public class GraphiteReporter {
             // check if this value is excluded
             if (graphiteExclusionRegex != null && graphiteExclusionRegex.matcher(nameToSend).matches()) {
                 if (graphiteInclusionRegex == null ||
-                    (graphiteInclusionRegex != null && !graphiteInclusionRegex.matcher(nameToSend).matches())) {
+                        (graphiteInclusionRegex != null && !graphiteInclusionRegex.matcher(nameToSend).matches())) {
                     return;
                 }
             }

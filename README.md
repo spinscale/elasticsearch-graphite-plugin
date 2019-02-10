@@ -45,6 +45,117 @@ Check your elasticsearch log file for a line like this after adding the configur
 * Not extensively tested
 * In case of a master node failover, counts are starting from 0 again (in case you are wondering about spikes)
 
+## Changes (ES 2.3):
+
+```text
+node.process
+	cpu
+		- sysSeconds
+		- userSeconds
+	mem
+		- resident
+		- share
+
+node.os
+	cpu
+		+ percent
+		+ average
+		- sys
+		- idle
+		- user
+	mem
+		- actualFreeBytes
+		- actualUsedBytes
+
+- node.network.tcp
+	- activeOpens
+	- passiveOpens
+	- attemptFails
+	- estabResets
+	- currEstab
+	- inSegs
+	- outSegs
+	- retransSegs
+	- inErrs
+	- outRsts
+
+node.jvm
+	- gc.%name%.lastGc
+		- startTime
+		- endTime
+		- max
+		- beforeUsed
+		- afterUsed
+		- durationSeconds
+	+ buffer.pool.%name%
+		+ totalCapacity
+		+ used
+		+ count
+
+node.fs%i%
+	- diskReads
+	- diskReadsInBytes
+	- diskWrites
+	- diskWritesInBytes
+	- diskQueue
+	- distService
+
+indexes.%name%.id.%id%
+	+ completion
+		+ sizeInBytes
+	+ suggest
+		+ count
+		+ current
+		+ timeInMillis
+	+ segments
+		+ count
+		+ memoryInBytes
+		+ bitsetMemoryInBytes
+		+ docValuesMemoryInBytes
+		+ indexWriterMaxMemoryInBytes
+		+ indexWriterMemoryInBytes
+		+ normsMemoryInBytes
+		+ storedFieldsMemoryInBytes
+		+ termVectorsMemoryInBytes
+		+ termsMemoryInBytes
+		+ versionMapMemoryInBytes
+	+ recovery
+		+ currentAsSource
+		+ currentAsTarget
+	+ querycache
+		+ evictions
+		+ hitCount
+		+ missCount
+		+ memorySizeInBytes
+		+ cacheCount
+		+ cacheSize
+		+ totalCount
+	+ translog
+		+ estimatedNumberOfOperations
+		+ sizeInBytes
+
+node
+	+ merge [see higher]
+	+ store [see higher]
+	+ completion [see higher]
+	+ suggest [see higher]
+	+ segments [see higher]
+	+ recovery [see higher]
+	+ querycache [see higher]
+	+ requestcache
+		+ evictions
+		+ hitCount
+		+ missCount
+		+ memorySizeInBytes
+	+ percolate
+		+ count
+		+ current
+		+ memorySizeInBytes
+		+ numQueries
+		+ timeInMillis
+	- filtercache
+	- idcache
+```
 
 ## Credits
 
