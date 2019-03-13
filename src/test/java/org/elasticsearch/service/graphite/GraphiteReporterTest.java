@@ -1,25 +1,16 @@
 package org.elasticsearch.service.graphite;
 
-import static com.google.common.base.Predicates.containsPattern;
 import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.hasItem;
-import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
-import org.apache.log4j.spi.LoggerFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
@@ -65,17 +56,12 @@ import org.elasticsearch.node.AdaptiveSelectionStats;
 import org.elasticsearch.node.ResponseCollectorService.ComputedNodeStats;
 import org.elasticsearch.script.ScriptStats;
 import org.elasticsearch.search.suggest.completion.CompletionStats;
-import org.elasticsearch.test.ESTestCase;
 import org.elasticsearch.threadpool.ThreadPoolStats;
 import org.elasticsearch.transport.TransportStats;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.runners.MockitoJUnitRunner;
 
 import com.carrotsearch.hppc.ObjectLongHashMap;
-import com.carrotsearch.hppc.cursors.ObjectLongCursor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -133,10 +119,12 @@ public class GraphiteReporterTest{
 
     @Test
     public void testSendIngestStatsIngestStats() {
-        
-        IngestStats stats = new IngestStats(new IngestStats.Stats(1,2,3,4), 
-                ImmutableMap.of("pipeline1", new IngestStats.Stats(5,6,7,8)));
-        
+
+        final IngestStats.Stats totalStats = new IngestStats.Stats(1, 2,3 ,4);
+        final IngestStats.PipelineStat pipelineStat = new IngestStats.PipelineStat("pipeline1", totalStats);
+        final IngestStats stats = new IngestStats(totalStats, Collections.singletonList(pipelineStat),
+                Collections.emptyMap());
+
         reporter.sendIngestStats(stats);
         
         assertThat(stringWriter.toString(), containsString(prefix + ".node.ingest.total.ingestCount"));

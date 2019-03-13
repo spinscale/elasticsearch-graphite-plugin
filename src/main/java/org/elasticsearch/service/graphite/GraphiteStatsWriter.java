@@ -1,22 +1,19 @@
 package org.elasticsearch.service.graphite;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.elasticsearch.SpecialPermission;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.List;
-
-import javax.xml.bind.Marshaller.Listener;
-
-import org.apache.logging.log4j.Logger;
-import org.elasticsearch.SpecialPermission;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 
 public class GraphiteStatsWriter implements StatsWriter{
     
-    private final Logger logger = ESLoggerFactory.getLogger(getClass().getName());
+    private static final Logger logger = LogManager.getLogger(GraphiteStatsWriter.class);
     private Socket socket = null;
     private BufferedWriter writer;
     private String host;
