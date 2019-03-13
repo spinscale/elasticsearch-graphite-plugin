@@ -2,16 +2,15 @@ package org.elasticsearch.service.graphite;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.action.admin.indices.stats.CommonStatsFlags;
@@ -34,10 +33,8 @@ import org.elasticsearch.indices.NodeIndicesStats;
 import org.elasticsearch.node.NodeService;
 
 public class GraphiteService extends AbstractLifecycleComponent {
+    private static final Logger logger = LogManager.getLogger(GraphiteService.class);
 
-    
-    enum StopWatchTypes { total, indices, node, shards};
-    
     private final ClusterService clusterService;
     private final IndicesService indicesService;
     private NodeService nodeService;
@@ -49,6 +46,7 @@ public class GraphiteService extends AbstractLifecycleComponent {
     private Pattern graphiteExclusionRegex;
     private Boolean perIndexMetrics;
     private Set<String> includeIndices;
+    private final Settings settings;
 
     private volatile Thread graphiteReporterThread;
     private volatile boolean closed;
@@ -66,6 +64,7 @@ public class GraphiteService extends AbstractLifecycleComponent {
     @Inject public GraphiteService(Settings settings, ClusterService clusterService, IndicesService indicesService,
                                    NodeService nodeService, ClusterSettings clusterSettings) {
         super(settings);
+        this.settings = settings;
         this.clusterService = clusterService;
         this.indicesService = indicesService;
         this.nodeService = nodeService;
@@ -184,8 +183,7 @@ public class GraphiteService extends AbstractLifecycleComponent {
                 }
                 try {
                     Thread.sleep(graphiteRefreshInternal.millis());
-                } catch (InterruptedException e1) {
-                    continue;
+                } catch (InterruptedException ignored) {
                 }
             }
         }
@@ -193,11 +191,9 @@ public class GraphiteService extends AbstractLifecycleComponent {
         private List<IndexShard> getIndexShards(Set<String> includes, IndicesService indicesService) {
             boolean all = includes.contains("_all");
             List<IndexShard> indexShards = new ArrayList<>();
-            Iterator<IndexService> indexServiceIterator = indicesService.iterator();
-            while (indexServiceIterator.hasNext()) {
-                IndexService indexService = indexServiceIterator.next();
+            for (IndexService indexService : indicesService) {
                 String indexName = indexService.getMetaData().getIndex().getName();
-                if(all || includes.contains(indexName)) {
+                if (all || includes.contains(indexName)) {
                     for (int shardId : indexService.shardIds()) {
                         IndexShard shard = indexService.getShardOrNull(shardId);
                         indexShards.add(shard);

@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.node.stats.NodeStats;
 import org.elasticsearch.common.FieldMemoryStats;
 import org.elasticsearch.common.StopWatch;
 import org.elasticsearch.common.StopWatch.TaskInfo;
-import org.elasticsearch.common.logging.ESLoggerFactory;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.discovery.DiscoveryStats;
@@ -54,7 +54,7 @@ import com.carrotsearch.hppc.cursors.ObjectLongCursor;
 
 public class GraphiteReporter {
 
-    private static final Logger logger = ESLoggerFactory.getLogger(GraphiteReporter.class.getName());
+    private static final Logger logger = LogManager.getLogger(GraphiteReporter.class);
     private final String prefix;    
     private List<IndexShard> indexShards;
     private NodeStats nodeStats;
@@ -147,10 +147,9 @@ public class GraphiteReporter {
     }
 
     void sendIngestStats(IngestStats ingestStats) {
-        String type = buildMetricName("node.ingest");
         sendIngestStats("total", ingestStats.getTotalStats());
-        for(String pipeline: ingestStats.getStatsPerPipeline().keySet()) {
-            sendIngestStats(pipeline, ingestStats.getStatsPerPipeline().get(pipeline));
+        for (IngestStats.PipelineStat pipelineStats : ingestStats.getPipelineStats()) {
+            sendIngestStats(pipelineStats.getPipelineId(), pipelineStats.getStats());
         }
     }
 

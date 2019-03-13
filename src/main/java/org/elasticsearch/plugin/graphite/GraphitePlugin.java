@@ -12,22 +12,15 @@ import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.service.graphite.GraphiteService;
 
 public class GraphitePlugin extends Plugin {
-
-    private Settings setting;
-
-    public GraphitePlugin(Settings setting) {
-        this.setting = setting;
-    }
-
     public String name() {
         return "graphite";
     }
 
     @Override
     public List<Setting<?>> getSettings() {
-        return Arrays.asList(new Setting<?>[] { GraphiteService.EVERY_SETTING, GraphiteService.EXCLUDE,
+        return Arrays.asList(GraphiteService.EVERY_SETTING, GraphiteService.EXCLUDE,
                 GraphiteService.HOST_SETTING, GraphiteService.INCLUDE, GraphiteService.PER_INDEX,
-                GraphiteService.PORT_SETTING, GraphiteService.PREFIX, GraphiteService.INCLUDE_INDEXES });
+                GraphiteService.PORT_SETTING, GraphiteService.PREFIX, GraphiteService.INCLUDE_INDEXES);
     }
 
     public String description() {
