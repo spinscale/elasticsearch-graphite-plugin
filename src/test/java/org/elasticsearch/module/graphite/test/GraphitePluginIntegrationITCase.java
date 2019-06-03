@@ -1,6 +1,5 @@
 package org.elasticsearch.module.graphite.test;
 
-import static com.google.common.base.Predicates.containsPattern;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
@@ -9,7 +8,9 @@ import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Pattern;
 
+import org.apache.logging.log4j.LogManager;
 import org.elasticsearch.SpecialPermission;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.action.search.SearchResponse;
@@ -22,8 +23,6 @@ import org.elasticsearch.test.ESIntegTestCase;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
-import com.google.common.collect.Iterables;
 
 public class GraphitePluginIntegrationITCase extends ESIntegTestCase{
 
@@ -109,24 +108,28 @@ public class GraphitePluginIntegrationITCase extends ESIntegTestCase{
         
     }
 
+    private boolean any(final Collection<String> collection, final String regex) {
+        final Pattern pattern = Pattern.compile(regex);
+        return collection.stream().anyMatch(s -> pattern.matcher(s).find());
+    }
+
     // the stupid hamcrest matchers have compile erros depending whether they run on java6 or java7, so I rolled my own version
     // yes, I know this sucks... I want power asserts, as usual
     private void assertGraphiteMetricIsContained(final String id) {
-        assertThat(Iterables.any(graphiteMockServer.getContent(), containsPattern(id)), is(true));
+        assertTrue(any(graphiteMockServer.getContent(), id));
     }
 
     private void assertGraphiteMetricIsNotContained(final String id) {
-        assertThat(Iterables.any(graphiteMockServer.getContent(), containsPattern(id)), is(false));
+        assertFalse(any(graphiteMockServer.getContent(), id));
     }
 
     // Make sure no elements with a chars [] are included
     private void ensureValidKeyNames() {
-        List<String> content = new ArrayList<String>(graphiteMockServer.getContent());
-        assertThat(Iterables.any(content, containsPattern("\\.\\.")), is(false));
-        assertThat(Iterables.any(content, containsPattern("\\[")), is(false));
-        assertThat(Iterables.any(content, containsPattern("\\]")), is(false));
-        assertThat(Iterables.any(content, containsPattern("\\(")), is(false));
-        assertThat(Iterables.any(content, containsPattern("\\)")), is(false));
+        assertFalse(any(graphiteMockServer.getContent(), "\\.\\."));
+        assertFalse(any(graphiteMockServer.getContent(), "\\["));
+        assertFalse(any(graphiteMockServer.getContent(), "\\]"));
+        assertFalse(any(graphiteMockServer.getContent(), "\\("));
+        assertFalse(any(graphiteMockServer.getContent(), "\\)"));
     }
 
     private IndexResponse  indexElement(String index, String type, String fieldValue) {

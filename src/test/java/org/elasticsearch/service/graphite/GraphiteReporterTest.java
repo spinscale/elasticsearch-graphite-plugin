@@ -62,8 +62,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.carrotsearch.hppc.ObjectLongHashMap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 public class GraphiteReporterTest{
     
@@ -100,7 +98,7 @@ public class GraphiteReporterTest{
         when(shardId.getIndex()).thenReturn(new org.elasticsearch.index.Index("indexname", UUID.randomUUID().toString()));
         when(indexShard.shardId()).thenReturn(shardId);
         
-        shards = ImmutableList.of(indexShard);
+        shards = Collections.singletonList(indexShard);
 
         reporter = new GraphiteReporter(statsWriter, prefix, nodeIndicesStats, shards, nodeStats, null, null, "1", System.currentTimeMillis(), new StopWatch()); 
     }
@@ -142,8 +140,8 @@ public class GraphiteReporterTest{
     
     @Test
     public void testSendAdaptiveSelectionStats() {
-        Map<String, Long> a1 = ImmutableMap.of("1",1l); 
-        Map<String, ComputedNodeStats> a2 = ImmutableMap.of("1", new ComputedNodeStats("1", 1,2,3,4)); 
+        Map<String, Long> a1 = Collections.singletonMap("1",1L);
+        Map<String, ComputedNodeStats> a2 = Collections.singletonMap("1", new ComputedNodeStats("1", 1,2,3,4));
         AdaptiveSelectionStats stats = new AdaptiveSelectionStats(a1, a2);
         
         reporter.sendAdaptiveSelectionStats(stats);
@@ -188,7 +186,7 @@ public class GraphiteReporterTest{
 
     @Test
     public void testSendNodeThreadPoolStats() {
-        ThreadPoolStats stats = new ThreadPoolStats(Arrays.asList(new ThreadPoolStats.Stats("tp-name", 1, 2, 3, 4, 5, 6)));
+        ThreadPoolStats stats = new ThreadPoolStats(Collections.singletonList(new ThreadPoolStats.Stats("tp-name", 1, 2, 3, 4, 5, 6)));
                 
         reporter.sendNodeThreadPoolStats(stats);
         
@@ -586,7 +584,7 @@ public class GraphiteReporterTest{
     @Test
     public void testSendIndexingStats() {
         IndexingStats hack = new IndexingStats();
-        IndexingStats stats = new IndexingStats(hack.getTotal(), ImmutableMap.of("idx1", hack.getTotal()));
+        IndexingStats stats = new IndexingStats(hack.getTotal(), Collections.singletonMap("idx1", hack.getTotal()));
         
         reporter.sendIndexingStats("sometype", stats);
         log.debug("Metrics: \n{}", stringWriter);
